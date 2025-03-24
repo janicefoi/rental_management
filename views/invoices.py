@@ -1,24 +1,23 @@
 from PyQt6.QtWidgets import (QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QTableWidget, QSizePolicy, 
                              QWidget, QMessageBox, QTableWidgetItem, QPushButton, QApplication, QComboBox,QDateEdit,
                              QCheckBox )
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt,  QDate
 import os
 import sys
-import webbrowser
-from functools import partial  # Import partial
+from functools import partial 
 import subprocess
 import psycopg2
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from db import connect_db 
-
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 import psycopg2
 import qrcode
 import platform
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 
 class InvoicesPage(QMainWindow):
     def __init__(self):
@@ -107,7 +106,7 @@ class InvoicesPage(QMainWindow):
         ])
         self.invoices_table.verticalHeader().setDefaultSectionSize(30)
 
-        column_widths = [150, 120, 120, 130, 120, 120, 100, 100, 120]
+        column_widths = [150, 120, 120, 130, 120, 120, 100, 100, 150]
         for i, width in enumerate(column_widths):
             self.invoices_table.setColumnWidth(i, width)
 
@@ -258,154 +257,154 @@ class InvoicesPage(QMainWindow):
         self.setCentralWidget(container)
 
     def load_invoices(self):
-        """Fetch invoices from the database and populate the table with status badges."""
-        conn = None
-        try:
-            conn = connect_db()
-            cur = conn.cursor()
-            
-            # Query to fetch invoices with tenant name and unit number
-            query = """
-            SELECT i.id, t.full_name, u.unit_number, i.amount_due, i.remaining_balance, 
-                i.invoice_date, i.due_date, i.status, i.late_fee
-            FROM invoices i
-            JOIN tenants t ON i.tenant_id = t.id
-            JOIN units u ON t.unit_id = u.id
-            ORDER BY i.due_date DESC;
-            """
-            cur.execute(query)
-            invoices = cur.fetchall()
+            """Fetch invoices from the database and populate the table with status badges."""
+            conn = None
+            try:
+                conn = connect_db()
+                cur = conn.cursor()
+                
+                # Query to fetch invoices with tenant name and unit number
+                query = """
+                SELECT i.id, t.full_name, u.unit_number, i.amount_due, i.remaining_balance, 
+                    i.invoice_date, i.due_date, i.status, i.late_fee
+                FROM invoices i
+                JOIN tenants t ON i.tenant_id = t.id
+                JOIN units u ON t.unit_id = u.id
+                ORDER BY i.due_date DESC;
+                """
+                cur.execute(query)
+                invoices = cur.fetchall()
 
-            # Clear existing table rows
-            self.invoices_table.setRowCount(0)
+                # Clear existing table rows
+                self.invoices_table.setRowCount(0)
 
-            # Populate the table with fetched data
-            for row_idx, row_data in enumerate(invoices):
-                invoice_id = row_data[0]  # Extract Invoice ID
-                self.invoices_table.insertRow(row_idx)
+                # Populate the table with fetched data
+                for row_idx, row_data in enumerate(invoices):
+                    invoice_id = row_data[0]  # Extract Invoice ID
+                    self.invoices_table.insertRow(row_idx)
 
-                # Fill table cells (Skipping invoice_id column)
-                for col_idx, value in enumerate(row_data[1:]):  # Exclude invoice_id
-                    if col_idx == 6:  # "Status" column (7th in query, 6th in table)
-                        status_button = QPushButton(str(value).capitalize())  # Create a QPushButton
-                        status_button.setEnabled(False)  # Make it non-clickable
-                        
-                        # Apply styling based on status
-                        status_styles = {
-                            "paid": "background-color: #90EE90; color: black;",  # Light Green
-                            "unpaid": "background-color: #FFB6C1; color: black;",  # Light Pink/Red
-                            "overdue": "background-color: #FF8C00; color: white;",  # Dark Orange
-                            "partially_paid": "background-color: #FFFF66; color: black;",  # Yellow
-                        }
-                        status_button.setStyleSheet(f"""
-                            {status_styles.get(value.lower(), "background-color: gray; color: white;")}
-                            border-radius: 10px;
-                            padding: 5px;
-                            font-weight: bold;
-                            border: 1px solid #ccc;
-                        """)
+                    # Fill table cells (Skipping invoice_id column)
+                    for col_idx, value in enumerate(row_data[1:]):  # Exclude invoice_id
+                        if col_idx == 6:  # "Status" column (7th in query, 6th in table)
+                            status_button = QPushButton(str(value).capitalize())  # Create a QPushButton
+                            status_button.setEnabled(False)  # Make it non-clickable
+                            
+                            # Apply styling based on status
+                            status_styles = {
+                                "paid": "background-color: #90EE90; color: black;",  # Light Green
+                                "unpaid": "background-color: #FFB6C1; color: black;",  # Light Pink/Red
+                                "overdue": "background-color: #FF8C00; color: white;",  # Dark Orange
+                                "partially_paid": "background-color: #FFFF66; color: black;",  # Yellow
+                            }
+                            status_button.setStyleSheet(f"""
+                                {status_styles.get(value.lower(), "background-color: gray; color: white;")}
+                                border-radius: 10px;
+                                padding: 5px;
+                                font-weight: bold;
+                                border: 1px solid #ccc;
+                            """)
 
-                        self.invoices_table.setCellWidget(row_idx, col_idx, status_button)  # Add button to table
-                    else:
-                        item = QTableWidgetItem(str(value))
-                        self.invoices_table.setItem(row_idx, col_idx, item)
+                            self.invoices_table.setCellWidget(row_idx, col_idx, status_button)  # Add button to table
+                        else:
+                            item = QTableWidgetItem(str(value))
+                            self.invoices_table.setItem(row_idx, col_idx, item)
 
-                # Create a QWidget container for both buttons
-                action_widget = QWidget()
-                action_layout = QHBoxLayout(action_widget)
-                action_layout.setContentsMargins(0, 0, 0, 0)
+                    # Create a QWidget container for both buttons
+                    action_widget = QWidget()
+                    action_layout = QHBoxLayout(action_widget)
+                    action_layout.setContentsMargins(0, 0, 0, 0)
 
-                # Download Button
-                download_button = QPushButton("Download")
-                download_button.setStyleSheet("background-color: black; color: gold; border-radius: 5px;")
-                download_button.clicked.connect(partial(self.download_invoice, invoice_id))
+                    # Download Button
+                    download_button = QPushButton("Download")
+                    download_button.setStyleSheet("background-color: black; color: gold;")
+                    download_button.clicked.connect(partial(self.download_invoice, invoice_id))
 
-                # Print Button
-                print_button = QPushButton("Print")
-                print_button.setStyleSheet("background-color: gold; color: black; border-radius: 5px;")
-                print_button.clicked.connect(partial(self.print_invoice, invoice_id))
+                    # Print Button
+                    print_button = QPushButton("Print")
+                    print_button.setStyleSheet("background-color: gold; color: black;")
+                    print_button.clicked.connect(partial(self.print_invoice, invoice_id))
 
-                # Add buttons to layout
-                action_layout.addWidget(download_button)
-                action_layout.addWidget(print_button)
+                    # Add buttons to layout
+                    action_layout.addWidget(download_button)
+                    action_layout.addWidget(print_button)
 
-                # Set the widget with buttons in the table
-                self.invoices_table.setCellWidget(row_idx, 8, action_widget)  # Actions column (index 8)
+                    # Set the widget with buttons in the table
+                    self.invoices_table.setCellWidget(row_idx, 8, action_widget)  # Actions column (index 8)
 
 
-            cur.close()
-            conn.close()
-        except Exception as e:
-            print(f"Error loading invoices: {e}")
-            if conn:
+                cur.close()
                 conn.close()
+            except Exception as e:
+                print(f"Error loading invoices: {e}")
+                if conn:
+                    conn.close()
 
     def generate_invoices(self):
-        """Generate invoices for all active tenants and automatically create PDFs."""
-        conn = connect_db()
-        if not conn:
-            return
+            """Generate invoices for all active tenants and automatically create PDFs."""
+            conn = connect_db()
+            if not conn:
+                return
 
-        try:
-            cur = conn.cursor()
-            today = QDate.currentDate()
-            current_month = today.toString("yyyy-MM")
-
-            cur.execute("""
-                SELECT t.id AS tenant_id, t.full_name, u.rent_amount 
-                FROM tenants t
-                JOIN units u ON t.unit_id = u.id
-                WHERE t.lease_end_date IS NULL OR t.lease_end_date > CURRENT_DATE
-            """)
-            tenants = cur.fetchall()
-
-            invoices_generated = 0
-            save_path = "invoices/"  # Ensure invoices are saved in the right directory
-            os.makedirs(save_path, exist_ok=True)
-
-            for tenant_id, tenant_name, rent_amount in tenants:
-                cur.execute("""
-                    SELECT id FROM invoices 
-                    WHERE tenant_id = %s AND to_char(invoice_date, 'YYYY-MM') = %s
-                """, (tenant_id, current_month))
-                existing_invoice = cur.fetchone()
-
-                if existing_invoice:
-                    continue  # Skip if an invoice already exists
-
-                due_date = today.addDays(7).toString("yyyy-MM-dd")
+            try:
+                cur = conn.cursor()
+                today = QDate.currentDate()
+                current_month = today.toString("yyyy-MM")
 
                 cur.execute("""
-                    INSERT INTO invoices (tenant_id, invoice_date, due_date, amount_due, status)
-                    VALUES (%s, CURRENT_DATE, %s, %s, 'unpaid') RETURNING id
-                """, (tenant_id, due_date, rent_amount))
+                    SELECT t.id AS tenant_id, t.full_name, u.rent_amount 
+                    FROM tenants t
+                    JOIN units u ON t.unit_id = u.id
+                    WHERE t.lease_end_date IS NULL OR t.lease_end_date > CURRENT_DATE
+                """)
+                tenants = cur.fetchall()
 
-                invoice_id = cur.fetchone()[0]  # Get the newly inserted invoice ID
-                invoices_generated += 1
+                invoices_generated = 0
+                save_path = "invoices/"  # Ensure invoices are saved in the right directory
+                os.makedirs(save_path, exist_ok=True)
 
-                # 🔹 Debug message: Invoice created
-                print(f"✅ Invoice {invoice_id} created for {tenant_name}")
+                for tenant_id, tenant_name, rent_amount in tenants:
+                    cur.execute("""
+                        SELECT id FROM invoices 
+                        WHERE tenant_id = %s AND to_char(invoice_date, 'YYYY-MM') = %s
+                    """, (tenant_id, current_month))
+                    existing_invoice = cur.fetchone()
 
-                # **Commit the transaction before generating the PDF**
-                conn.commit()  
+                    if existing_invoice:
+                        continue  # Skip if an invoice already exists
 
-                # **Now generate PDF for the Invoice**
-                pdf_path = self.generate_invoice_pdf(invoice_id, save_path)
+                    due_date = today.addDays(7).toString("yyyy-MM-dd")
 
-                if pdf_path:
-                    print(f"📄 Invoice PDF generated: {pdf_path}")
-                else:
-                    print(f"⚠️ Failed to generate PDF for Invoice {invoice_id}")
+                    cur.execute("""
+                        INSERT INTO invoices (tenant_id, invoice_date, due_date, amount_due, status)
+                        VALUES (%s, CURRENT_DATE, %s, %s, 'unpaid') RETURNING id
+                    """, (tenant_id, due_date, rent_amount))
 
-            cur.close()
-            conn.close()
+                    invoice_id = cur.fetchone()[0]  # Get the newly inserted invoice ID
+                    invoices_generated += 1
 
-            self.load_invoices()  # Refresh UI table
-            QMessageBox.information(self, "Invoices Generated", f"Generated {invoices_generated} new invoices.")
+                    # 🔹 Debug message: Invoice created
+                    print(f"✅ Invoice {invoice_id} created for {tenant_name}")
 
-        except psycopg2.Error as e:
-            QMessageBox.critical(self, "Database Error", f"Failed to generate invoices: {e}")
+                    # **Commit the transaction before generating the PDF**
+                    conn.commit()  
 
+                    # **Now generate PDF for the Invoice**
+                    pdf_path = self.generate_invoice_pdf(invoice_id, save_path)
+
+                    if pdf_path:
+                        print(f"📄 Invoice PDF generated: {pdf_path}")
+                    else:
+                        print(f"⚠️ Failed to generate PDF for Invoice {invoice_id}")
+
+                cur.close()
+                conn.close()
+
+                self.load_invoices()  # Refresh UI table
+                QMessageBox.information(self, "Invoices Generated", f"Generated {invoices_generated} new invoices.")
+
+            except psycopg2.Error as e:
+                 QMessageBox.critical(self, "Database Error", f"Failed to generate invoices: {e}")
+         
     def download_invoice(self, invoice_id):
         """Generate and save the invoice as a PDF, then open it."""
         save_path = "invoices/"
@@ -441,7 +440,6 @@ class InvoicesPage(QMainWindow):
                 print("Unsupported OS for direct printing.")
 
             print(f"Sent {pdf_path} to printer.")
-
 
     def generate_invoice_pdf(self, invoice_id, save_path="invoices/"):
         """Generate a PDF invoice for the given invoice_id with dynamic payment details."""
@@ -722,7 +720,57 @@ class InvoicesPage(QMainWindow):
             print(f"Error loading filtered invoices: {e}")
             if conn:
                 conn.close()
+    
+    def apply_late_fees():
+        """Check for overdue invoices and apply a fixed late fee."""
+        conn = connect_db()
+        if not conn:
+            print("❌ Database connection failed.")
+            return
 
+        try:
+            cur = conn.cursor()
+
+            # Fetch the fixed late fee from settings (default: 1500 Ksh)
+            cur.execute("SELECT value FROM settings WHERE key = 'late_fee_fixed'")
+            late_fee_fixed = Decimal(cur.fetchone()[0]) if cur.rowcount else Decimal("1500.0")  
+
+            # Get overdue invoices (unpaid and past due date) that have not had a late fee applied
+            cur.execute("""
+                SELECT id, tenant_id, amount_due, COALESCE(late_fee, 0) 
+                FROM invoices 
+                WHERE status = 'overdue' AND due_date < CURRENT_DATE
+            """)
+            overdue_invoices = cur.fetchall()
+
+            for invoice_id, tenant_id, amount_due, existing_late_fee in overdue_invoices:
+                # Only apply a new late fee if it hasn't been applied before
+                if existing_late_fee == 0:
+                    new_amount_due = amount_due + late_fee_fixed
+                    new_late_fee = late_fee_fixed
+
+                    # Update invoice amount, late_fee, and mark as overdue
+                    cur.execute("""
+                        UPDATE invoices 
+                        SET amount_due = %s, late_fee = %s
+                        WHERE id = %s
+                    """, (new_amount_due, new_late_fee, invoice_id))
+
+                    # Fetch tenant contact details
+                    cur.execute("SELECT full_name, email FROM tenants WHERE id = %s", (tenant_id,))
+                    tenant = cur.fetchone()
+                    tenant_name, tenant_email = tenant if tenant else ("Unknown", None)
+
+                    # Log application of late fee
+                    print(f"[{datetime.now()}] 🏠 Late fee of {late_fee_fixed} applied to Invoice {invoice_id} for {tenant_name}.")
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            print("✅ Late fee process completed.")
+
+        except psycopg2.Error as e:
+            print(f"⚠️ Database Error: {e}")
 
     def go_back(self):
         from views.payment_management import PaymentManagementPage  # Import inside the function
@@ -730,7 +778,6 @@ class InvoicesPage(QMainWindow):
         self.payment_management.show()
         self.close()
 
- 
     def toggle_filter_panel(self):
         """Show/hide filter panel."""
         if self.filter_panel.isVisible():
@@ -748,7 +795,6 @@ class InvoicesPage(QMainWindow):
         self.overdue_checkbox.setChecked(False)
         
         self.load_filtered_invoices(None, None, None, [])  # Reload all invoices
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

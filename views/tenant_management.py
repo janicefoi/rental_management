@@ -13,7 +13,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from db import connect_db
 from datetime import date, datetime
 
-
 class TenantManagementPage(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -417,21 +416,23 @@ class TenantManagementPage(QMainWindow):
             }
         """
 
-
         # Input fields
         full_name_input = QLineEdit()
         phone_input = QLineEdit()
         email_input = QLineEdit()
         id_number_input = QLineEdit()
-        
+
         lease_start_input = QDateEdit()
         lease_start_input.setCalendarPopup(True)
+        lease_start_input.setStyleSheet(field_style)
+        lease_start_input.setDate(date.today())  # Set default date
 
         lease_end_input = QDateEdit()
         lease_end_input.setCalendarPopup(True)
+        lease_end_input.setStyleSheet(field_style)
         lease_end_input.setSpecialValueText("No End Date")  # Shows placeholder text
         lease_end_input.clear()  # Clears the default date
-
+    
         apartment_dropdown = QComboBox()
         unit_dropdown = QComboBox()
 
@@ -456,8 +457,12 @@ class TenantManagementPage(QMainWindow):
             file_path, _ = QFileDialog.getOpenFileName(dialog, "Select Lease Agreement", "", "PDF Files (*.pdf)")
             if file_path:
                 lease_file_path.setText(file_path)
-        # Apply styles to input fields
-        for widget in [full_name_input, phone_input, email_input, id_number_input, lease_start_input, lease_end_input, apartment_dropdown, unit_dropdown, lease_file_path]:
+
+        # Apply styles individually to prevent issues
+        for widget in [
+            full_name_input, phone_input, email_input, id_number_input, 
+            apartment_dropdown, unit_dropdown, lease_start_input, lease_end_input, lease_file_path
+        ]:
             widget.setStyleSheet(field_style)
 
         # Apply styles to both calendar popups
@@ -529,7 +534,6 @@ class TenantManagementPage(QMainWindow):
             ("Lease End Date:", lease_end_input),  # New lease end field
             ("Lease Agreement:", lease_file_path),
         ]
-
     
         for text, widget in labels:
             label = QLabel(text)
@@ -610,6 +614,7 @@ class TenantManagementPage(QMainWindow):
                 padding: 2px;
                 font-size: 11pt;
                 min-width: 200px;
+                max-width: 200px;
             }
         """
         button_style = """
@@ -794,8 +799,6 @@ class TenantManagementPage(QMainWindow):
         self.load_units(self.apartment_dropdown, self.unit_dropdown)  # 🔄 Refresh available units
         dialog.accept()
         QMessageBox.information(self, "Success", "Tenant details updated successfully!")
-
-
 
     def toggle_filter_panel(self):
         """Show/hide filter panel."""

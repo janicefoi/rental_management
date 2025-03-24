@@ -155,9 +155,7 @@ class LoginPage(QWidget):
             msg_box.setIcon(QMessageBox.Icon.Critical)
             msg_box.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }")  # Ensure text is visible
             msg_box.exec()
-
-
-
+ 
     def open_admin_dashboard(self):
             """Opens the Admin Dashboard."""
             self.admin_dashboard = MainWindow()  # Assuming AdminDashboard is another PyQt6 class
