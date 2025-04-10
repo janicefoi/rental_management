@@ -161,7 +161,7 @@ class PaymentManagementPage(QMainWindow):
         self.close()
     
     def open_reports(self):
-        from views.reports import ReportsPage
+        from views.report_analytics import ReportsPage
         self.reports_page = ReportsPage()
         self.reports_page.show()
         self.close()

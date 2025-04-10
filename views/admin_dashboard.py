@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, QTimer
 from views.property_management import PropertiesPage
 from views.tenant_management import TenantManagementPage
 from views.payment_management import PaymentManagementPage
+from views.maintenance_management import MaintenancePage
 
 class HoverButton(QPushButton):
     def __init__(self, text):
@@ -51,6 +52,7 @@ class MainWindow(QMainWindow):
         btn_properties.clicked.connect(self.open_property_management)
         btn_tenants.clicked.connect(self.open_tenant_management)
         btn_payments.clicked.connect(self.open_payment_management)
+        btn_maintenance.clicked.connect(self.open_maintenance_management)
        
 
         buttons = [btn_dashboard, btn_properties, btn_tenants, btn_payments, btn_maintenance, btn_reports]
@@ -188,6 +190,10 @@ class MainWindow(QMainWindow):
         self.property_window = PaymentManagementPage()
         self.property_window.show()
 
+    def open_maintenance_management(self):
+        self.hide()  # Hide Admin Dashboard instead of closing it
+        self.property_window = MaintenancePage()
+        self.property_window.show()
 
 
 

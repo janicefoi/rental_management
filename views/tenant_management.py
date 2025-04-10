@@ -97,10 +97,41 @@ class TenantManagementPage(QMainWindow):
         title_label.setStyleSheet("color: black;")
         self.main_layout.addWidget(title_label)
 
+        # Search Bar Layout
+        search_layout = QHBoxLayout()
+        left_spacer = QWidget()
+        left_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        right_spacer = QWidget()
+        right_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search tenant by name, ID, contact, or email...")
+        self.search_bar.setFixedWidth(300)
+        self.search_bar.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid black;
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 12pt;
+                color: black;
+            }
+        """)
+        self.search_bar.textChanged.connect(self.filter_tenants)  # 🔥 Connect search bar to filtering function
+
+        # Add elements to layout
+        search_layout.addWidget(left_spacer)
+        search_layout.addWidget(self.search_bar)
+        search_layout.addWidget(right_spacer)
+
+        # Add search bar layout to main layout
+        self.main_layout.addLayout(search_layout)
+
         # **Tenants Table**
         self.tenants_table = QTableWidget()
-        self.tenants_table.setColumnCount(9)
-        self.tenants_table.setHorizontalHeaderLabels(["Name", "ID Number","Contact","Email", "Unit", "Apartment", "Lease Start Date","Lease End Date","Actions"])
+        self.tenants_table.setColumnCount(10)  # Add 1 more column for Credit Balance
+        self.tenants_table.setHorizontalHeaderLabels(["Name", "ID Number", "Contact", "Email", "Unit", "Apartment", "Lease Start Date", "Lease End Date", "Credit Balance", "Actions"])
+
         self.tenants_table.setStyleSheet("background-color: white; border: 2px solid black; border-radius: 10px;")
 
         # Adjust column widths
@@ -112,7 +143,9 @@ class TenantManagementPage(QMainWindow):
         self.tenants_table.setColumnWidth(5, 150)
         self.tenants_table.setColumnWidth(6, 150)
         self.tenants_table.setColumnWidth(7, 150)
-        self.tenants_table.setColumnWidth(8, 200)
+        self.tenants_table.setColumnWidth(8, 120)  # Adjust for Credit Balance
+        self.tenants_table.setColumnWidth(9, 200)  # Actions Column
+
 
         self.tenants_table.setStyleSheet("""
             QTableWidget {
@@ -235,16 +268,18 @@ class TenantManagementPage(QMainWindow):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT tenants.id, tenants.full_name, tenants.id_number, tenants.phone, tenants.email, 
-                units.unit_number, apartments.name, tenants.lease_start_date, tenants.lease_end_date
+                units.unit_number, apartments.name, tenants.lease_start_date, tenants.lease_end_date, tenants.credit_balance
             FROM tenants
             JOIN units ON tenants.unit_id = units.id
             JOIN apartments ON units.apartment_id = apartments.id
         """)
+
         tenants = cursor.fetchall()
         conn.close()
         
         for row_idx, tenant in enumerate(tenants):
-            tenant_id, name, id_number, phone, email, unit_number, apartment_name, lease_start_date, lease_end_date = tenant
+            tenant_id, name, id_number, phone, email, unit_number, apartment_name, lease_start_date, lease_end_date, credit_balance = tenant
+
             
             self.tenants_table.insertRow(row_idx)
             self.tenants_table.setItem(row_idx, 0, QTableWidgetItem(name))
@@ -255,6 +290,8 @@ class TenantManagementPage(QMainWindow):
             self.tenants_table.setItem(row_idx, 5, QTableWidgetItem(apartment_name))
             self.tenants_table.setItem(row_idx, 6, QTableWidgetItem(str(lease_start_date)))
             self.tenants_table.setItem(row_idx, 7, QTableWidgetItem(str(lease_end_date) if lease_end_date else "Active"))
+            self.tenants_table.setItem(row_idx, 8, QTableWidgetItem(f"Ksh {credit_balance:,.2f}"))  # Format as currency
+
 
             # Actions Column (Edit/Delete Buttons)
             actions_widget = QWidget()
@@ -276,7 +313,7 @@ class TenantManagementPage(QMainWindow):
             actions_layout.setContentsMargins(0, 0, 0, 0)  # Remove extra padding
             actions_widget.setLayout(actions_layout)
 
-            self.tenants_table.setCellWidget(row_idx, 8, actions_widget)  # Actions column
+            self.tenants_table.setCellWidget(row_idx, 9, actions_widget)  # Actions column
 
     def go_back(self):
         from views.admin_dashboard import MainWindow
@@ -914,6 +951,22 @@ class TenantManagementPage(QMainWindow):
 
         except psycopg2.Error as e:
             print(f"Database error: {e}")
+
+    def filter_tenants(self):
+        """Filters the tenants table based on the search input."""
+        search_text = self.search_bar.text().strip().lower()
+
+        for row in range(self.tenants_table.rowCount()):
+            row_matches = False  # Assume row doesn't match
+
+            for col in range(self.tenants_table.columnCount()):  # Include all columns
+                item = self.tenants_table.item(row, col)
+                if item and search_text in item.text().strip().lower():
+                    row_matches = True
+                    break  # No need to check further if there's a match
+
+            self.tenants_table.setRowHidden(row, not row_matches)  # Hide rows that don't match
+
 
     def reset_filters(self):
         """Reset all filters and reload all tenants."""

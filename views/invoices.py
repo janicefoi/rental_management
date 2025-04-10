@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QTableWidget, QSizePolicy, 
                              QWidget, QMessageBox, QTableWidgetItem, QPushButton, QApplication, QComboBox,QDateEdit,
-                             QCheckBox )
+                             QCheckBox,QLineEdit )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt,  QDate
 import os
@@ -93,6 +93,35 @@ class InvoicesPage(QMainWindow):
         top_button_layout.addWidget(filter_button)
         top_button_layout.addWidget(reset_button)
         self.main_layout.addLayout(top_button_layout)
+                # Search Bar Layout
+        search_layout = QHBoxLayout()
+        left_spacer = QWidget()
+        left_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        right_spacer = QWidget()
+        right_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search tenant by name, ID, contact, or email...")
+        self.search_bar.setFixedWidth(300)
+        self.search_bar.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid black;
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 12pt;
+                color: black;
+            }
+        """)
+        self.search_bar.textChanged.connect(self.filter_invoices)  # 🔥 Connect search bar to filtering function
+
+        # Add elements to layout
+        search_layout.addWidget(left_spacer)
+        search_layout.addWidget(self.search_bar)
+        search_layout.addWidget(right_spacer)
+
+        # Add search bar layout to main layout
+        self.main_layout.addLayout(search_layout)
 
         # **Main Content Layout (Invoices Table + Filter Panel on Right)**
         self.content_layout = QHBoxLayout()
@@ -151,7 +180,7 @@ class InvoicesPage(QMainWindow):
         self.start_date = QDateEdit()
         self.start_date.setCalendarPopup(True)
         self.start_date.setStyleSheet("color: gold; background-color: black;")
-        self.start_date.setDate(date.today())
+        self.start_date.setDate(QDate.currentDate().addMonths(-1))  # Start date = 1 month ago
         filter_layout.addWidget(self.start_date)
 
         self.end_date = QDateEdit()
@@ -340,71 +369,74 @@ class InvoicesPage(QMainWindow):
                     conn.close()
 
     def generate_invoices(self):
-            """Generate invoices for all active tenants and automatically create PDFs."""
-            conn = connect_db()
-            if not conn:
-                return
+        """Generate invoices for all active tenants and apply any available credit."""
+        conn = connect_db()
+        if not conn:
+            return
 
-            try:
-                cur = conn.cursor()
-                today = QDate.currentDate()
-                current_month = today.toString("yyyy-MM")
+        try:
+            cur = conn.cursor()
+            today = QDate.currentDate()
+            current_month = today.toString("yyyy-MM")
 
+            cur.execute("""
+                SELECT t.id AS tenant_id, t.full_name, u.rent_amount, t.credit_balance
+                FROM tenants t
+                JOIN units u ON t.unit_id = u.id
+                WHERE t.lease_end_date IS NULL OR t.lease_end_date > CURRENT_DATE
+            """)
+            tenants = cur.fetchall()
+
+            invoices_generated = 0
+            save_path = "invoices/"
+            os.makedirs(save_path, exist_ok=True)
+
+            for tenant_id, tenant_name, rent_amount, credit_balance in tenants:
                 cur.execute("""
-                    SELECT t.id AS tenant_id, t.full_name, u.rent_amount 
-                    FROM tenants t
-                    JOIN units u ON t.unit_id = u.id
-                    WHERE t.lease_end_date IS NULL OR t.lease_end_date > CURRENT_DATE
-                """)
-                tenants = cur.fetchall()
+                    SELECT id FROM invoices 
+                    WHERE tenant_id = %s AND to_char(invoice_date, 'YYYY-MM') = %s
+                """, (tenant_id, current_month))
+                existing_invoice = cur.fetchone()
 
-                invoices_generated = 0
-                save_path = "invoices/"  # Ensure invoices are saved in the right directory
-                os.makedirs(save_path, exist_ok=True)
+                if existing_invoice:
+                    continue  # Skip if an invoice already exists
 
-                for tenant_id, tenant_name, rent_amount in tenants:
-                    cur.execute("""
-                        SELECT id FROM invoices 
-                        WHERE tenant_id = %s AND to_char(invoice_date, 'YYYY-MM') = %s
-                    """, (tenant_id, current_month))
-                    existing_invoice = cur.fetchone()
+                due_date = today.addDays(7).toString("yyyy-MM-dd")
 
-                    if existing_invoice:
-                        continue  # Skip if an invoice already exists
+                # Deduct available credit from new invoice
+                amount_due = max(0, rent_amount - credit_balance)
 
-                    due_date = today.addDays(7).toString("yyyy-MM-dd")
+                # Insert invoice
+                cur.execute("""
+                    INSERT INTO invoices (tenant_id, invoice_date, due_date, amount_due, status)
+                    VALUES (%s, CURRENT_DATE, %s, %s, %s) RETURNING id
+                """, (tenant_id, due_date, amount_due, 'paid' if amount_due == 0 else 'unpaid'))
 
-                    cur.execute("""
-                        INSERT INTO invoices (tenant_id, invoice_date, due_date, amount_due, status)
-                        VALUES (%s, CURRENT_DATE, %s, %s, 'unpaid') RETURNING id
-                    """, (tenant_id, due_date, rent_amount))
+                invoice_id = cur.fetchone()[0]
+                invoices_generated += 1
 
-                    invoice_id = cur.fetchone()[0]  # Get the newly inserted invoice ID
-                    invoices_generated += 1
+                # If credit was used, reduce credit balance
+                new_credit_balance = max(0, credit_balance - rent_amount)
+                cur.execute("""
+                    UPDATE tenants SET credit_balance = %s WHERE id = %s
+                """, (new_credit_balance, tenant_id))
 
-                    # 🔹 Debug message: Invoice created
-                    print(f"✅ Invoice {invoice_id} created for {tenant_name}")
+                conn.commit()
+                pdf_path=self.generate_invoice_pdf(invoice_id, save_path)
 
-                    # **Commit the transaction before generating the PDF**
-                    conn.commit()  
+                if pdf_path:
+                    print(f"📄 Invoice PDF generated: {pdf_path}")
+                else:
+                    print(f"⚠️ Failed to generate PDF for Invoice {invoice_id}")
 
-                    # **Now generate PDF for the Invoice**
-                    pdf_path = self.generate_invoice_pdf(invoice_id, save_path)
+            cur.close()
+            conn.close()
+            self.load_invoices()
+            QMessageBox.information(self, "Invoices Generated", f"Generated {invoices_generated} new invoices.")
 
-                    if pdf_path:
-                        print(f"📄 Invoice PDF generated: {pdf_path}")
-                    else:
-                        print(f"⚠️ Failed to generate PDF for Invoice {invoice_id}")
-
-                cur.close()
-                conn.close()
-
-                self.load_invoices()  # Refresh UI table
-                QMessageBox.information(self, "Invoices Generated", f"Generated {invoices_generated} new invoices.")
-
-            except psycopg2.Error as e:
-                 QMessageBox.critical(self, "Database Error", f"Failed to generate invoices: {e}")
-         
+        except psycopg2.Error as e:
+            print(f"❌ Database Error: {e}")
+        
     def download_invoice(self, invoice_id):
         """Generate and save the invoice as a PDF, then open it."""
         save_path = "invoices/"
@@ -796,6 +828,21 @@ class InvoicesPage(QMainWindow):
         
         self.load_filtered_invoices(None, None, None, [])  # Reload all invoices
 
+    def filter_invoices(self):
+        """Filters the tenants table based on the search input."""
+        search_text = self.search_bar.text().strip().lower()
+
+        for row in range(self.invoices_table.rowCount()):
+            row_matches = False  # Assume row doesn't match
+
+            for col in range(self.invoices_table.columnCount()):  # Include all columns
+                item = self.invoices_table.item(row, col)
+                if item and search_text in item.text().strip().lower():
+                    row_matches = True
+                    break  # No need to check further if there's a match
+
+            self.invoices_table.setRowHidden(row, not row_matches)  # Hide rows that don't match
+            
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = InvoicesPage()

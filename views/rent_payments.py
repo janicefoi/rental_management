@@ -85,6 +85,35 @@ class RentPaymentsPage(QMainWindow):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("color: black;")
         self.main_layout.addWidget(title_label)
+                # Search Bar Layout
+        search_layout = QHBoxLayout()
+        left_spacer = QWidget()
+        left_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        right_spacer = QWidget()
+        right_spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search payments by tenant name, ID, contact, or email...")
+        self.search_bar.setFixedWidth(300)
+        self.search_bar.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid black;
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 12pt;
+                color: black;
+            }
+        """)
+        self.search_bar.textChanged.connect(self.filter_payments)  # 🔥 Connect search bar to filtering function
+
+        # Add elements to layout
+        search_layout.addWidget(left_spacer)
+        search_layout.addWidget(self.search_bar)
+        search_layout.addWidget(right_spacer)
+
+        # Add search bar layout to main layout
+        self.main_layout.addLayout(search_layout)
 
         # **Payments Table**
         self.payments_table = QTableWidget()
@@ -368,6 +397,10 @@ class RentPaymentsPage(QMainWindow):
                 QMessageBox.warning(self, "Error", "Please fill in all required fields.")
                 return
 
+            # Fetch tenant's existing credit balance
+            cur.execute("SELECT credit_balance FROM tenants WHERE id = %s", (tenant_id,))
+            credit_balance = cur.fetchone()[0] or Decimal(0)
+
             # Generate the next receipt number
             cur.execute("SELECT receipt_number FROM payments ORDER BY id DESC LIMIT 1")
             last_receipt = cur.fetchone()
@@ -381,13 +414,12 @@ class RentPaymentsPage(QMainWindow):
             RETURNING id
             """
             cur.execute(query, (tenant_id, amount_paid, payment_date, 
-                    payment_method, new_receipt, status))
+                                payment_method, new_receipt, status))
 
             payment_id = cur.fetchone()[0]
             print(f"✅ Payment {payment_id} recorded: Tenant {tenant_id} paid {amount_paid}")
 
-
-            # Find the most recent unpaid, partially paid, or overdue invoice
+            # Fetch the earliest unpaid invoice
             cur.execute("""
                 SELECT id, amount_due, late_fee, remaining_balance, status 
                 FROM invoices 
@@ -405,12 +437,11 @@ class RentPaymentsPage(QMainWindow):
 
                 print(f"📜 Invoice {invoice_id} found: Amount Due = {amount_due}, Late Fee = {late_fee}, Corrected Remaining Balance = {remaining_balance}")
 
-                # Calculate new balance after payment
+                # Apply payment to the invoice
                 new_balance = remaining_balance - amount_paid
                 print(f"💰 Payment applied: {amount_paid}, New Balance: {new_balance}")
 
-                # Case 1: Full Payment (Clears Rent + Late Fee)
-                if new_balance <= 0:
+                if new_balance <= 0:  # Full payment or overpayment
                     cur.execute("""
                         UPDATE invoices 
                         SET status = 'paid', remaining_balance = 0 
@@ -418,17 +449,16 @@ class RentPaymentsPage(QMainWindow):
                     """, (invoice_id,))
                     print(f"✅ Invoice {invoice_id} marked as PAID")
 
-                # Case 2: Partial Payment (Covers Rent, but Late Fee Still Due)
-                elif new_balance == late_fee:
-                    cur.execute("""
-                        UPDATE invoices 
-                        SET status = 'partially_paid', remaining_balance = %s 
-                        WHERE id = %s
-                    """, (new_balance, invoice_id))
-                    print(f"⚠️ Invoice {invoice_id} is now PARTIALLY PAID. Late fee remaining: {new_balance}")
+                    # If overpayment, store it as tenant credit
+                    overpaid_amount = abs(new_balance)
+                    if overpaid_amount > 0:
+                        credit_balance += overpaid_amount
+                        cur.execute("""
+                            UPDATE tenants SET credit_balance = %s WHERE id = %s
+                        """, (credit_balance, tenant_id))
+                        print(f"💰 Overpayment of {overpaid_amount} stored as tenant credit (Total Credit: {credit_balance})")
 
-                # Case 3: Partial Payment (Still Owes Rent + Late Fee)
-                else:
+                else:  # Partial payment case
                     cur.execute("""
                         UPDATE invoices 
                         SET status = 'partially_paid', remaining_balance = %s 
@@ -437,8 +467,12 @@ class RentPaymentsPage(QMainWindow):
                     print(f"⚠️ Invoice {invoice_id} is now PARTIALLY PAID. Remaining balance: {new_balance}")
 
             else:
-                print(f"❌ No unpaid, overdue, or partially paid invoice found for Tenant {tenant_id}")
-
+                # If no unpaid invoice exists, store the entire amount as credit
+                credit_balance += amount_paid
+                cur.execute("""
+                    UPDATE tenants SET credit_balance = %s WHERE id = %s
+                """, (credit_balance, tenant_id))
+                print(f"💰 No invoice found. Entire payment stored as tenant credit (Total Credit: {credit_balance})")
 
             conn.commit()
             cur.close()
@@ -454,6 +488,7 @@ class RentPaymentsPage(QMainWindow):
         except psycopg2.Error as e:
             QMessageBox.critical(self, "Database Error", f"Failed to save payment: {e}")
             print(f"❌ Database Error: {e}")
+
 
    
     def generate_receipt_pdf(self, payment_id, save_path="receipts/"):
@@ -602,6 +637,21 @@ class RentPaymentsPage(QMainWindow):
             QMessageBox.information(self, "Success", "Receipt sent successfully!")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to send receipt: {e}")
+
+    def filter_payments(self):
+        """Filters the tenants table based on the search input."""
+        search_text = self.search_bar.text().strip().lower()
+
+        for row in range(self.payments_table.rowCount()):
+            row_matches = False  # Assume row doesn't match
+
+            for col in range(self.payments_table.columnCount()):  # Include all columns
+                item = self.payments_table.item(row, col)
+                if item and search_text in item.text().strip().lower():
+                    row_matches = True
+                    break  # No need to check further if there's a match
+
+            self.payments_table.setRowHidden(row, not row_matches)  # Hide rows that don't match
 
     def toggle_filter_panel(self):
         print("Toggle filter panel")  # Placeholder for filter functionality
