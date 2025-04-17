@@ -1,13 +1,17 @@
 import sys
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QGridLayout, QSizePolicy, QApplication,
-    QFrame, QComboBox
+    QFrame, QComboBox, QTabWidget
 )
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from db import connect_db
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import numpy as np
 
 class ReportsPage(QWidget):
     def __init__(self):
@@ -29,14 +33,17 @@ class ReportsPage(QWidget):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)
@@ -89,6 +96,38 @@ class ReportsPage(QWidget):
         top_button_layout.addWidget(reset_button)
 
         self.main_layout.addLayout(top_button_layout)
+
+        # Add Graph Tabs
+        graph_tabs = QTabWidget()
+        graph_tabs.setStyleSheet("""
+            QTabWidget {
+                background-color: white;
+                border: 2px solid #1a1a1a;
+                border-radius: 10px;
+            }
+            QTabBar::tab {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                padding: 8px 20px;
+                margin: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #FFD700;
+                color: #1a1a1a;
+            }
+        """)
+
+        # Create canvas for different graphs
+        self.payment_trend_canvas = self.create_payment_trend_graph()
+        self.invoice_status_canvas = self.create_invoice_status_graph()
+        
+        # Add graphs to tabs
+        graph_tabs.addTab(self.payment_trend_canvas, "Payment Trends")
+        graph_tabs.addTab(self.invoice_status_canvas, "Invoice Status")
+        
+        self.main_layout.addWidget(graph_tabs)
 
         # **Report Cards Container**
         container = QWidget()
@@ -182,6 +221,7 @@ class ReportsPage(QWidget):
                     DATE_TRUNC('month', i.invoice_date) AS month_start,
                     TO_CHAR(i.invoice_date, 'Month YYYY') AS month,
                     COUNT(i.id) AS total_invoices,
+                    COUNT(CASE WHEN i.status = 'paid' THEN 1 END) AS paid_invoices,
                     COUNT(CASE WHEN i.status = 'overdue' THEN 1 END) AS overdue_invoices,
                     COUNT(CASE WHEN i.status = 'partially_paid' THEN 1 END) AS partially_paid,
                     COUNT(CASE WHEN i.status = 'unpaid' THEN 1 END) AS unpaid_invoices,
@@ -213,6 +253,7 @@ class ReportsPage(QWidget):
                 m.month, 
                 COALESCE(p.total_collected, 0) AS total_collected,
                 m.total_invoices,
+                m.paid_invoices,
                 m.overdue_invoices,
                 m.partially_paid,
                 m.unpaid_invoices,
@@ -249,7 +290,9 @@ class ReportsPage(QWidget):
             print("No report data found!")
             return
 
-        self.create_monthly_cards(data)
+        if data:
+            self.create_monthly_cards(data)
+            self.update_graphs(data)  # Add this line
 
 
     def create_monthly_cards(self, data):
@@ -268,13 +311,13 @@ class ReportsPage(QWidget):
             # Print each row to see the structure (debugging step)
             print(f"🧪 Row {i}: {row_data} (Length: {len(row_data)})")
 
-            # Check if the row has exactly 7 elements
-            if len(row_data) != 7:
-                print(f"⚠️ Warning: Expected 7 elements but got {len(row_data)}. Skipping this row.")
+            # Check if the row has exactly 8 elements (not 7)
+            if len(row_data) != 8:
+                print(f"⚠️ Warning: Expected 8 elements but got {len(row_data)}. Skipping this row.")
                 continue  # Skip this row if it's malformed
 
-            # Unpack the 7 values from the row
-            month, total_collected, total_invoices, overdue_invoices, partially_paid, unpaid_invoices, total_remaining = row_data
+            # Unpack the 8 values from the row
+            month, total_collected, total_invoices, paid_invoices, overdue_invoices, partially_paid, unpaid_invoices, total_remaining = row_data
             print(f"🛠️ Creating card for {month.strip()} - Total Rent: {total_collected}")  
 
             card = QFrame()
@@ -289,6 +332,7 @@ class ReportsPage(QWidget):
                 ("📆 Month", month.strip()),
                 ("💰 Total Rent Collected", f"Ksh {total_collected or 0:,.2f}"),
                 ("📄 Total Invoices Issued", total_invoices or 0),
+                ("✅ Paid Invoices", paid_invoices or 0),
                 ("❗ Overdue Invoices", overdue_invoices or 0),
                 ("🟠 Partially Paid", partially_paid or 0),
                 ("🟥 Unpaid Invoices", unpaid_invoices or 0),
@@ -306,7 +350,7 @@ class ReportsPage(QWidget):
                     padding: 5px;
                 """)
                 card_layout.addWidget(metric_label)
-                print(f"✅ Added label: {label}: {value}")  
+ 
 
             card.setLayout(card_layout)  
             self.cards_layout.addWidget(card, row, col)
@@ -394,8 +438,66 @@ class ReportsPage(QWidget):
         # Reload all report data
         self.load_reports_data()
 
+    def create_payment_trend_graph(self):
+        fig = Figure(figsize=(8, 4))
+        canvas = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        
+        # We'll update this in load_reports_data
+        self.payment_trend_ax = ax
+        return canvas
 
+    def create_invoice_status_graph(self):
+        fig = Figure(figsize=(8, 4))
+        canvas = FigureCanvas(fig)
+        ax = fig.add_subplot(111)
+        
+        # We'll update this in load_reports_data
+        self.invoice_status_ax = ax
+        return canvas
 
+    def update_graphs(self, data):
+        # Clear previous graphs
+        self.payment_trend_ax.clear()
+        self.invoice_status_ax.clear()
+
+        # Extract data for graphs
+        months = [row[0].strip() for row in data]
+        payments = [float(row[1]) for row in data]
+        paid = [int(row[3]) for row in data]      # New: paid invoices
+        overdue = [int(row[4]) for row in data]   # Adjusted index
+        partial = [int(row[5]) for row in data]   # Adjusted index
+        unpaid = [int(row[6]) for row in data]    # Adjusted index
+
+        # Payment Trends Graph remains the same
+        self.payment_trend_ax.plot(range(len(months)), payments, marker='o', color='#FFD700')
+        self.payment_trend_ax.set_title('Monthly Payment Trends')
+        self.payment_trend_ax.set_xlabel('Month')
+        self.payment_trend_ax.set_ylabel('Amount (KSH)')
+        self.payment_trend_ax.set_xticks(range(len(months)))
+        self.payment_trend_ax.set_xticklabels(months, rotation=45, ha='right')
+        self.payment_trend_ax.grid(True, linestyle='--', alpha=0.7)
+        self.payment_trend_ax.figure.subplots_adjust(bottom=0.2)
+
+        # Invoice Status Graph updated with paid invoices
+        width = 0.2  # Adjusted width to accommodate new bar
+        x = np.arange(len(months))
+        self.invoice_status_ax.bar(x - width*1.5, paid, width, label='Paid', color='#90EE90')
+        self.invoice_status_ax.bar(x - width/2, overdue, width, label='Overdue', color='#FF8C00')
+        self.invoice_status_ax.bar(x + width/2, partial, width, label='Partial', color='#FFFF66')
+        self.invoice_status_ax.bar(x + width*1.5, unpaid, width, label='Unpaid', color='#FFB6C1')
+        self.invoice_status_ax.set_title('Invoice Status Distribution')
+        self.invoice_status_ax.set_xlabel('Month')
+        self.invoice_status_ax.set_ylabel('Number of Invoices')
+        self.invoice_status_ax.set_xticks(x)
+        self.invoice_status_ax.set_xticklabels(months, rotation=45, ha='right')
+        self.invoice_status_ax.legend()
+        self.invoice_status_ax.grid(True, linestyle='--', alpha=0.7)
+        self.invoice_status_ax.figure.subplots_adjust(bottom=0.2)  # Make room for labels
+
+        # Refresh canvases
+        self.payment_trend_canvas.draw()
+        self.invoice_status_canvas.draw()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

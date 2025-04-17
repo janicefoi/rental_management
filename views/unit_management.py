@@ -3,14 +3,14 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHBoxLayout, QDialog,
     QFormLayout, QLineEdit, QSpinBox, QComboBox, QMessageBox, QApplication,
-    QSizePolicy, QCheckBox
+    QSizePolicy, QCheckBox, QAbstractItemView
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
 import psycopg2
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from db import connect_db  # Ensure this imports your database connection function
+from db import connect_db  
 
 
 class UnitManagementPage(QMainWindow):
@@ -35,14 +35,17 @@ class UnitManagementPage(QMainWindow):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)
@@ -74,14 +77,14 @@ class UnitManagementPage(QMainWindow):
         reset_button.setFixedSize(40, 40)  # Make it round
         reset_button.setStyleSheet("""
             QPushButton {
-                background-color: gray;
-                color: white;
+                background-color: black;
+                color: gold;
                 border-radius: 20px;  /* Makes the button round */
                 padding: 5px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: lightgray;
+                background-color: gold;
                 color: black;
             }
         """)
@@ -107,7 +110,8 @@ class UnitManagementPage(QMainWindow):
         self.units_table = QTableWidget()
         self.units_table.setColumnCount(6)
         self.units_table.setHorizontalHeaderLabels(["Unit Number", "Floor Number", "Rent Amount", "Status", "Unit Type", "Actions"])
-        self.units_table.verticalHeader().setDefaultSectionSize(30)
+        self.units_table.verticalHeader().setDefaultSectionSize(35)
+        self.units_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
 
         # Adjust column widths
         self.units_table.setColumnWidth(0, 150)
@@ -120,18 +124,36 @@ class UnitManagementPage(QMainWindow):
         self.units_table.setStyleSheet("""
             QTableWidget {
                 background-color: white;
-                color: black;
-                gridline-color: transparent;
-                border: 2px solid black;
-                border-radius: 10px;
+                border: 2px solid #1a1a1a;
+                border-radius: 15px;
             }
             QTableWidget::item {
-                border: none;
+                padding: 5px;
+                border-bottom: 1px solid #e0e0e0;
+                color: #1a1a1a;
+            }
+            QTableWidget::item:selected {
+                background-color: #FFD700;
+                color: #1a1a1a;
             }
             QHeaderView::section {
-                background-color: white;
-                color: black;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                padding: 12px;
                 border: none;
+                font-weight: bold;
+            }
+            QScrollBar:vertical {
+                background-color: #f0f0f0;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #1a1a1a;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #FFD700;
             }
         """)
 
@@ -259,9 +281,46 @@ class UnitManagementPage(QMainWindow):
                 edit_button = QPushButton("Edit")
                 delete_button = QPushButton("Delete")
 
-                edit_button.setStyleSheet("background-color: green; color: black;")
-                delete_button.setStyleSheet("background-color: red; color: black;")
-                
+                edit_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #1a1a1a;
+                        color: #FFD700;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        min-width: 55px;
+                        max-width: 55px;
+                        min-height: 20px;
+                        max-height: 20px;
+                        font-size: 10px;
+                        margin: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FFD700;
+                        color: #1a1a1a;
+                    }
+                """)
+                delete_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #8B0000;
+                        color: white;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        min-width: 55px;
+                        max-width: 55px;
+                        min-height: 20px;
+                        max-height: 20px;
+                        font-size: 10px;
+                        margin: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FF0000;
+                        color: white;
+                    }
+                """)
+
+                actions_layout.setContentsMargins(0, 0, 0, 0)
+                actions_layout.setSpacing(2)
+
                 edit_button.setFixedWidth(80)
                 delete_button.setFixedWidth(80)
 
@@ -635,21 +694,57 @@ class UnitManagementPage(QMainWindow):
                 self.units_table.setItem(row_idx, 3, QTableWidgetItem(status))
                 self.units_table.setItem(row_idx, 4, QTableWidgetItem(unit_type))
 
-                # Actions (Edit/Delete) - Keeping the same behavior as load_units()
+                # Actions (Edit/Delete)
                 actions_widget = QWidget()
                 actions_layout = QHBoxLayout()
                 edit_button = QPushButton("Edit")
                 delete_button = QPushButton("Delete")
 
-                edit_button.setStyleSheet("background-color: green; color: black;")
-                delete_button.setStyleSheet("background-color: red; color: black;")
+                edit_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #1a1a1a;
+                        color: #FFD700;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        min-width: 55px;
+                        max-width: 55px;
+                        min-height: 20px;
+                        max-height: 20px;
+                        font-size: 10px;
+                        margin: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FFD700;
+                        color: #1a1a1a;
+                    }
+                """)
+                delete_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #8B0000;
+                        color: white;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        min-width: 55px;
+                        max-width: 55px;
+                        min-height: 20px;
+                        max-height: 20px;
+                        font-size: 10px;
+                        margin: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FF0000;
+                        color: white;
+                    }
+                """)
+
+                actions_layout.setContentsMargins(0, 0, 0, 0)
+                actions_layout.setSpacing(2)
 
                 edit_button.setFixedWidth(80)
                 delete_button.setFixedWidth(80)
 
                 edit_button.clicked.connect(lambda _, uid=unit_id: self.show_edit_unit_dialog(uid))
                 delete_button.clicked.connect(lambda _, uid=unit_id: self.delete_unit(uid))
-
                 actions_layout.addWidget(edit_button)
                 actions_layout.addWidget(delete_button)
                 actions_widget.setLayout(actions_layout)

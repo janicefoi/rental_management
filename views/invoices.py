@@ -106,11 +106,15 @@ class InvoicesPage(QMainWindow):
         self.search_bar.setFixedWidth(300)
         self.search_bar.setStyleSheet("""
             QLineEdit {
-                border: 2px solid black;
-                border-radius: 10px;
-                padding: 8px;
-                font-size: 12pt;
-                color: black;
+                background-color: white;
+                border: 2px solid #1a1a1a;
+                border-radius: 15px;
+                padding: 8px 15px;
+                font-size: 12px;
+                color: #1a1a1a;
+            }
+            QLineEdit:focus {
+                border: 2px solid #FFD700;
             }
         """)
         self.search_bar.textChanged.connect(self.filter_invoices)  # 🔥 Connect search bar to filtering function
@@ -135,25 +139,39 @@ class InvoicesPage(QMainWindow):
         ])
         self.invoices_table.verticalHeader().setDefaultSectionSize(30)
 
+        # Set column widths
         column_widths = [150, 120, 120, 130, 120, 120, 100, 100, 150]
         for i, width in enumerate(column_widths):
             self.invoices_table.setColumnWidth(i, width)
 
+        # Updated table styling
         self.invoices_table.setStyleSheet("""
             QTableWidget {
                 background-color: white;
-                color: black;
-                gridline-color: transparent;
-                border: 2px solid black;
+                border: 2px solid #1a1a1a;
                 border-radius: 10px;
+                padding: 5px;
+                color: black;  /* Set default text color */
             }
             QTableWidget::item {
-                border: none;
+                padding: 5px;
+                border-bottom: 1px solid #ddd;
+                color: black;  /* Ensure item text is black */
+            }
+            QTableWidget::item:selected {
+                background-color: #FFD700;
+                color: #1a1a1a;
             }
             QHeaderView::section {
-                background-color: white;
-                color: black;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                padding: 8px;
                 border: none;
+                font-weight: bold;
+            }
+            QTableWidget::item:hover {
+                background-color: #f5f5f5;
+                color: black;  /* Keep text black on hover */
             }
         """)
 
@@ -328,9 +346,12 @@ class InvoicesPage(QMainWindow):
                             status_button.setStyleSheet(f"""
                                 {status_styles.get(value.lower(), "background-color: gray; color: white;")}
                                 border-radius: 10px;
-                                padding: 5px;
+                                padding: 2px 8px;
                                 font-weight: bold;
-                                border: 1px solid #ccc;
+                                border: none;
+                                margin: 2px;
+                                min-height: 20px;
+                                max-height: 25px;
                             """)
 
                             self.invoices_table.setCellWidget(row_idx, col_idx, status_button)  # Add button to table
@@ -716,9 +737,12 @@ class InvoicesPage(QMainWindow):
                         status_button.setStyleSheet(f"""
                             {status_styles.get(value.lower(), "background-color: gray; color: white;")}
                             border-radius: 10px;
-                            padding: 5px;
+                            padding: 2px 8px;
                             font-weight: bold;
-                            border: 1px solid #ccc;
+                            border: none;
+                            margin: 2px;
+                            min-height: 20px;
+                            max-height: 25px;
                         """)
 
                         self.invoices_table.setCellWidget(row_idx, col_idx, status_button)  # Add button to table

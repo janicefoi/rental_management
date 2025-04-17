@@ -36,14 +36,17 @@ class PropertyMaintenanceManagement(QMainWindow):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)
@@ -123,18 +126,28 @@ class PropertyMaintenanceManagement(QMainWindow):
         self.expenses_table.setStyleSheet("""
             QTableWidget {
                 background-color: white;
-                color: black;
-                gridline-color: transparent;
-                border: 2px solid black;
+                border: 2px solid #1a1a1a;
                 border-radius: 10px;
+                padding: 10px;
             }
             QTableWidget::item {
-                border: none;
+                padding: 5px;
+                border-bottom: 1px solid #ddd;
+                color: black;
+            }
+            QTableWidget::item:selected {
+                background-color: #FFD700;
+                color: #1a1a1a;
             }
             QHeaderView::section {
-                background-color: white;
-                color: black;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                padding: 8px;
                 border: none;
+                font-weight: bold;
+            }
+            QTableWidget::item:hover {
+                background-color: #f5f5f5;
             }
         """)
 
@@ -375,6 +388,72 @@ class PropertyMaintenanceManagement(QMainWindow):
         date_input.setCalendarPopup(True)
         date_input.setDate(QDate.currentDate())
         description_input = QLineEdit()
+
+        # Apply calendar styling
+        date_input.calendarWidget().setStyleSheet("""
+            QCalendarWidget {
+                background-color: #1a1a1a;
+                color: white;
+                border: 2px solid #FFD700;
+                border-radius: 10px;
+            }
+            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                background-color: #1a1a1a;
+                border-bottom: 2px solid #FFD700;
+            }
+            QCalendarWidget QComboBox {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border: 1px solid #FFD700;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QCalendarWidget QComboBox QAbstractItemView {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                selection-background-color: #FFD700;
+                selection-color: #1a1a1a;
+            }
+            QCalendarWidget QToolButton {
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border-radius: 5px;
+                padding: 5px;
+                min-width: 30px;
+                min-height: 30px;
+            }
+            QCalendarWidget QToolButton:hover {
+                background-color: white;
+                color: #1a1a1a;
+            }
+            QCalendarWidget QMenu {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border: 1px solid #FFD700;
+            }
+            QCalendarWidget QSpinBox {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border: 1px solid #FFD700;
+                border-radius: 5px;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                color: white;
+                background-color: #1a1a1a;
+                selection-background-color: #FFD700;
+                selection-color: #1a1a1a;
+            }
+            QCalendarWidget QTableView {
+                background-color: #1a1a1a;
+                color: white;
+                selection-background-color: #FFD700;
+                selection-color: #1a1a1a;
+                outline: none;
+            }
+            QCalendarWidget QTableView::item:hover {
+                background-color: rgba(255, 215, 0, 0.2);
+            }
+        """)
 
         # Apply styles
         for widget in [category_dropdown, subcategory_dropdown, amount_input, date_input, description_input]:

@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHBoxLayout, QDialog,
     QFormLayout, QLineEdit, QComboBox, QMessageBox, QApplication,
     QSizePolicy, QCheckBox, QDateEdit,  QFileDialog,QPushButton,  QLineEdit, 
+    QAbstractItemView
 )
 from PyQt6.QtCore import Qt,QDate
 from PyQt6.QtGui import QFont
@@ -33,14 +34,17 @@ class TenantManagementPage(QMainWindow):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)
@@ -52,17 +56,20 @@ class TenantManagementPage(QMainWindow):
         filter_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         filter_button.setFixedSize(120, 40)
         filter_button.setStyleSheet("""
-            QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: gold;
-                color: black;
-            }
-        """)
+                QPushButton {
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border-radius: 20px;
+                    padding: 10px 20px;
+                    font-weight: bold;
+                    border: 2px solid #1a1a1a;
+                }
+                QPushButton:hover {
+                    background-color: #FFD700;
+                    color: #1a1a1a;
+                    border: 2px solid #FFD700;
+                }
+            """)
         filter_button.clicked.connect(self.toggle_filter_panel)
 
         reset_button = QPushButton("⟳")
@@ -110,11 +117,15 @@ class TenantManagementPage(QMainWindow):
         self.search_bar.setFixedWidth(300)
         self.search_bar.setStyleSheet("""
             QLineEdit {
-                border: 2px solid black;
-                border-radius: 10px;
-                padding: 8px;
-                font-size: 12pt;
-                color: black;
+                background-color: #f8f9fa;
+                border: 2px solid #1a1a1a;
+                border-radius: 20px;
+                padding: 10px 15px;
+                font-size: 14px;
+                color: #1a1a1a;
+            }
+            QLineEdit:focus {
+                border: 2px solid #FFD700;
             }
         """)
         self.search_bar.textChanged.connect(self.filter_tenants)  # 🔥 Connect search bar to filtering function
@@ -129,10 +140,45 @@ class TenantManagementPage(QMainWindow):
 
         # **Tenants Table**
         self.tenants_table = QTableWidget()
-        self.tenants_table.setColumnCount(10)  # Add 1 more column for Credit Balance
-        self.tenants_table.setHorizontalHeaderLabels(["Name", "ID Number", "Contact", "Email", "Unit", "Apartment", "Lease Start Date", "Lease End Date", "Credit Balance", "Actions"])
+        self.tenants_table.setColumnCount(11)  
+        self.tenants_table.setHorizontalHeaderLabels(["Name", "ID Number", "Contact", "Email", "Unit", "Apartment", "Lease Start Date", "Lease End Date", "Credit Balance","Deposit", "Actions"])
 
-        self.tenants_table.setStyleSheet("background-color: white; border: 2px solid black; border-radius: 10px;")
+        # Update table styling
+        self.tenants_table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 2px solid #1a1a1a;
+                border-radius: 15px;
+            }
+            QTableWidget::item {
+                padding: 5px;  /* Reduced padding */
+                border-bottom: 1px solid #e0e0e0;
+                color: #1a1a1a;
+            }
+            QTableWidget::item:selected {
+                background-color: #FFD700;
+                color: #1a1a1a;
+            }
+            QHeaderView::section {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                padding: 12px;
+                border: none;
+                font-weight: bold;
+            }
+            QScrollBar:vertical {
+                background-color: #f0f0f0;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #1a1a1a;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #FFD700;
+            }
+        """)
 
         # Adjust column widths
         self.tenants_table.setColumnWidth(0, 150)
@@ -144,31 +190,48 @@ class TenantManagementPage(QMainWindow):
         self.tenants_table.setColumnWidth(6, 150)
         self.tenants_table.setColumnWidth(7, 150)
         self.tenants_table.setColumnWidth(8, 120)  # Adjust for Credit Balance
-        self.tenants_table.setColumnWidth(9, 200)  # Actions Column
+        self.tenants_table.setColumnWidth(9, 120)  # Adjust for Credit Balance
+        self.tenants_table.setColumnWidth(10, 200)  # Actions Column
 
 
-        self.tenants_table.setStyleSheet("""
-            QTableWidget {
-                background-color: white;
-                color: black;
-                gridline-color: transparent;
-                border: 2px solid black;
-                border-radius: 10px;
-            }
-            QTableWidget::item {
-                border: none;
-            }
-            QHeaderView::section {
-                background-color: white;
-                color: black;
-                border: none;
-            }
-        """)
 
          # **Sliding Filter Panel (Initially Hidden)**
         self.filter_panel = QWidget()
         self.filter_panel.setFixedWidth(300)  # Panel Width (300px)
-        self.filter_panel.setStyleSheet("background-color: black; border-left: 2px solid gold;")
+        self.filter_panel.setStyleSheet("""
+            QWidget {
+                background-color: #1a1a1a;
+                border-left: 2px solid #FFD700;
+            }
+            QLabel {
+                color: #FFD700;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QComboBox {
+                background-color: #ffffff;
+                border: 2px solid #FFD700;
+                border-radius: 10px;
+                padding: 5px;
+                color: #1a1a1a;
+            }
+            QComboBox:hover {
+                border: 2px solid #ffffff;
+            }
+            QCheckBox {
+                color: #FFD700;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #FFD700;
+                border-radius: 5px;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #FFD700;
+            }
+        """)
 
         filter_layout = QVBoxLayout()
         filter_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -262,13 +325,16 @@ class TenantManagementPage(QMainWindow):
         
     def load_tenants(self):
         """Load tenants into the table with Edit and Delete buttons."""
-        self.tenants_table.setRowCount(0)  # Clear existing rows
+        self.tenants_table.setRowCount(0)  # Clear existing rows  
+        self.tenants_table.verticalHeader().setDefaultSectionSize(35)     
+        self.tenants_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tenants_table.cellDoubleClicked.connect(self.open_tenant_details)
         
         conn = connect_db()
         cursor = conn.cursor()
         cursor.execute("""
             SELECT tenants.id, tenants.full_name, tenants.id_number, tenants.phone, tenants.email, 
-                units.unit_number, apartments.name, tenants.lease_start_date, tenants.lease_end_date, tenants.credit_balance
+                units.unit_number, apartments.name, tenants.lease_start_date, tenants.lease_end_date, tenants.credit_balance, tenants.deposit
             FROM tenants
             JOIN units ON tenants.unit_id = units.id
             JOIN apartments ON units.apartment_id = apartments.id
@@ -277,8 +343,9 @@ class TenantManagementPage(QMainWindow):
         tenants = cursor.fetchall()
         conn.close()
         
+        
         for row_idx, tenant in enumerate(tenants):
-            tenant_id, name, id_number, phone, email, unit_number, apartment_name, lease_start_date, lease_end_date, credit_balance = tenant
+            tenant_id, name, id_number, phone, email, unit_number, apartment_name, lease_start_date, lease_end_date, credit_balance,deposit = tenant
 
             
             self.tenants_table.insertRow(row_idx)
@@ -291,30 +358,62 @@ class TenantManagementPage(QMainWindow):
             self.tenants_table.setItem(row_idx, 6, QTableWidgetItem(str(lease_start_date)))
             self.tenants_table.setItem(row_idx, 7, QTableWidgetItem(str(lease_end_date) if lease_end_date else "Active"))
             self.tenants_table.setItem(row_idx, 8, QTableWidgetItem(f"Ksh {credit_balance:,.2f}"))  # Format as currency
-
-
+            self.tenants_table.setItem(row_idx, 9, QTableWidgetItem(f"Ksh {deposit:,.2f}"))  # Format as currency
             # Actions Column (Edit/Delete Buttons)
             actions_widget = QWidget()
             actions_layout = QHBoxLayout()
             edit_button = QPushButton("Edit")
             delete_button = QPushButton("Delete")
 
-            edit_button.setStyleSheet("background-color: green; color: black;")
-            delete_button.setStyleSheet("background-color: red; color: black;")
-
-            edit_button.setFixedWidth(80)
-            delete_button.setFixedWidth(80)
-
-            edit_button.clicked.connect(lambda _, tid=tenant_id: self.show_edit_tenant_dialog(tid))
-            delete_button.clicked.connect(lambda _, tid=tenant_id: self.delete_tenant(tid))
+            edit_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    min-width: 55px;
+                    max-width: 55px;
+                    min-height: 20px;
+                    max-height: 20px;
+                    font-size: 10px;
+                    margin: 0px;
+                }
+                QPushButton:hover {
+                    background-color: #FFD700;
+                    color: #1a1a1a;
+                }
+            """)
+            delete_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #8B0000;
+                    color: white;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    min-width: 55px;
+                    max-width: 55px;
+                    min-height: 20px;
+                    max-height: 20px;
+                    font-size: 10px;
+                    margin: 0px;
+                }
+                QPushButton:hover {
+                    background-color: #FF0000;
+                    color: white;
+                }
+            """)
 
             actions_layout.addWidget(edit_button)
             actions_layout.addWidget(delete_button)
-            actions_layout.setContentsMargins(0, 0, 0, 0)  # Remove extra padding
+            actions_layout.setContentsMargins(0, 0, 0, 0)  # Remove all margins
+            actions_layout.setSpacing(2)  # Minimal spacing
             actions_widget.setLayout(actions_layout)
 
-            self.tenants_table.setCellWidget(row_idx, 9, actions_widget)  # Actions column
+            self.tenants_table.setCellWidget(row_idx, 10, actions_widget)
 
+            # Connect buttons to their respective functions
+            edit_button.clicked.connect(lambda _, idx=row_idx: self.show_edit_tenant_dialog(tenant_id))
+            delete_button.clicked.connect(lambda _, idx=row_idx: self.delete_tenant(tenant_id)) 
+            
     def go_back(self):
         from views.admin_dashboard import MainWindow
         self.admin_dashboard = MainWindow()
@@ -349,10 +448,10 @@ class TenantManagementPage(QMainWindow):
         else:
             unit_dropdown.addItem("No available units", -1)  # Show if no units are available
 
-    def add_tenant(self, full_name, phone, email, id_number, apartment_id, unit_id, lease_start_date, lease_end_date, lease_file_path, dialog):
+    def add_tenant(self, full_name, phone, email, id_number,deposit, apartment_id, unit_id, lease_start_date, lease_end_date, lease_file_path, dialog):
         """Saves the new tenant to the database, updates the unit status, and refreshes the tables."""
 
-        if not all([full_name, phone, email, id_number, apartment_id != -1, unit_id, lease_start_date]):
+        if not all([full_name, phone, email, id_number,deposit, apartment_id != -1, unit_id, lease_start_date]):
             QMessageBox.warning(None, "Missing Data", "Please fill in all required fields (Lease End Date is optional).")
             return
 
@@ -372,9 +471,9 @@ class TenantManagementPage(QMainWindow):
 
             # Insert tenant record (allows NULL for lease_end_date)
             cursor.execute("""
-                INSERT INTO tenants (full_name, phone, email, id_number, unit_id, lease_start_date, lease_end_date, lease_agreement)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-            """, (full_name, phone, email, id_number, unit_id, lease_start_date, lease_end_date, lease_filename))
+                INSERT INTO tenants (full_name, phone, email, id_number,deposit, unit_id, lease_start_date, lease_end_date, lease_agreement)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+            """, (full_name, phone, email, id_number,deposit, unit_id, lease_start_date, lease_end_date, lease_filename))
 
             # 🔥 Fix: Correct unit status logic
             today = datetime.today().date()
@@ -458,6 +557,7 @@ class TenantManagementPage(QMainWindow):
         phone_input = QLineEdit()
         email_input = QLineEdit()
         id_number_input = QLineEdit()
+        deposit_input = QLineEdit()
 
         lease_start_input = QDateEdit()
         lease_start_input.setCalendarPopup(True)
@@ -497,7 +597,7 @@ class TenantManagementPage(QMainWindow):
 
         # Apply styles individually to prevent issues
         for widget in [
-            full_name_input, phone_input, email_input, id_number_input, 
+            full_name_input, phone_input, email_input, id_number_input,deposit_input,
             apartment_dropdown, unit_dropdown, lease_start_input, lease_end_input, lease_file_path
         ]:
             widget.setStyleSheet(field_style)
@@ -506,56 +606,66 @@ class TenantManagementPage(QMainWindow):
         for calendar_widget in [lease_start_input.calendarWidget(), lease_end_input.calendarWidget()]:
             calendar_widget.setStyleSheet("""
                 QCalendarWidget {
-                    background-color: black;
+                    background-color: #1a1a1a;
                     color: white;
-                    border: 2px solid gold;
+                    border: 2px solid #FFD700;
+                    border-radius: 10px;
                 }
                 QCalendarWidget QWidget#qt_calendar_navigationbar {
-                    background-color: black;
-                    border-bottom: 2px solid gold;
+                    background-color: #1a1a1a;
+                    border-bottom: 2px solid #FFD700;
                 }
                 QCalendarWidget QComboBox {
-                    background-color: black;
-                    color: gold;
-                    border: 1px solid gold;
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border: 1px solid #FFD700;
                     border-radius: 5px;
-                    padding: 3px;
+                    padding: 5px;
                 }
                 QCalendarWidget QComboBox QAbstractItemView {
-                    background-color: black;
-                    color: gold;
-                    selection-background-color: gold;
-                    selection-color: black;
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    selection-background-color: #FFD700;
+                    selection-color: #1a1a1a;
                 }
                 QCalendarWidget QToolButton {
-                    background-color: gold;
-                    color: black;
+                    background-color: #FFD700;
+                    color: #1a1a1a;
                     border-radius: 5px;
+                    padding: 5px;
+                    min-width: 30px;
+                    min-height: 30px;
                 }
                 QCalendarWidget QToolButton:hover {
                     background-color: white;
-                    color: black;
+                    color: #1a1a1a;
                 }
-                QCalendarWidget QToolButton#qt_calendar_prevmonth,
-                QCalendarWidget QToolButton#qt_calendar_nextmonth {
-                    background-color: gold;
+                QCalendarWidget QMenu {
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border: 1px solid #FFD700;
+                }
+                QCalendarWidget QSpinBox {
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border: 1px solid #FFD700;
                     border-radius: 5px;
-                    width: 20px;
-                    height: 20px;
                 }
-                QCalendarWidget QToolButton#qt_calendar_prevmonth:hover,
-                QCalendarWidget QToolButton#qt_calendar_nextmonth:hover {
-                    background-color: white;
-                    color: black;
+                QCalendarWidget QAbstractItemView:enabled {
+                    color: white;
+                    background-color: #1a1a1a;
+                    selection-background-color: #FFD700;
+                    selection-color: #1a1a1a;
                 }
                 QCalendarWidget QTableView {
-                    background-color: black;
+                    background-color: #1a1a1a;
                     color: white;
+                    selection-background-color: #FFD700;
+                    selection-color: #1a1a1a;
+                    outline: none;
                 }
-                QCalendarWidget QTableView::item:selected {
-                    background-color: gold;
-                    color: black;
-                    border-radius: 5px;
+                QCalendarWidget QTableView::item:hover {
+                    background-color: rgba(255, 215, 0, 0.2);
                 }
             """)
 
@@ -565,6 +675,7 @@ class TenantManagementPage(QMainWindow):
             ("Phone:", phone_input),
             ("Email:", email_input),
             ("ID Number:", id_number_input),
+            ("Deposit:", deposit_input),
             ("Apartment:", apartment_dropdown),
             ("Unit:", unit_dropdown),
             ("Lease Start Date:", lease_start_input),
@@ -593,6 +704,7 @@ class TenantManagementPage(QMainWindow):
             phone_input.text(),
             email_input.text(),
             id_number_input.text(),
+            deposit_input.text(),
             int(apartment_dropdown.currentData()),
             int(unit_dropdown.currentData()),
             lease_start_input.date().toString("yyyy-MM-dd"),
@@ -706,62 +818,74 @@ class TenantManagementPage(QMainWindow):
 
         lease_end_input.setStyleSheet(lease_start_input.styleSheet())
 
-        # Retrieve the calendar widget and apply styling
+    
+        # Apply styles to both calendar popups
         for calendar_widget in [lease_start_input.calendarWidget(), lease_end_input.calendarWidget()]:
             calendar_widget.setStyleSheet("""
                 QCalendarWidget {
-                    background-color: black;
+                    background-color: #1a1a1a;
                     color: white;
-                    border: 2px solid gold;
+                    border: 2px solid #FFD700;
+                    border-radius: 10px;
                 }
                 QCalendarWidget QWidget#qt_calendar_navigationbar {
-                    background-color: black;
-                    border-bottom: 2px solid gold;
+                    background-color: #1a1a1a;
+                    border-bottom: 2px solid #FFD700;
                 }
                 QCalendarWidget QComboBox {
-                    background-color: black;
-                    color: gold;
-                    border: 1px solid gold;
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border: 1px solid #FFD700;
                     border-radius: 5px;
-                    padding: 3px;
+                    padding: 5px;
                 }
                 QCalendarWidget QComboBox QAbstractItemView {
-                    background-color: black;
-                    color: gold;
-                    selection-background-color: gold;
-                    selection-color: black;
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    selection-background-color: #FFD700;
+                    selection-color: #1a1a1a;
                 }
                 QCalendarWidget QToolButton {
-                    background-color: gold;
-                    color: black;
+                    background-color: #FFD700;
+                    color: #1a1a1a;
                     border-radius: 5px;
+                    padding: 5px;
+                    min-width: 30px;
+                    min-height: 30px;
                 }
                 QCalendarWidget QToolButton:hover {
                     background-color: white;
-                    color: black;
+                    color: #1a1a1a;
                 }
-                QCalendarWidget QToolButton#qt_calendar_prevmonth,
-                QCalendarWidget QToolButton#qt_calendar_nextmonth {
-                    background-color: gold;
+                QCalendarWidget QMenu {
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border: 1px solid #FFD700;
+                }
+                QCalendarWidget QSpinBox {
+                    background-color: #1a1a1a;
+                    color: #FFD700;
+                    border: 1px solid #FFD700;
                     border-radius: 5px;
-                    width: 20px;
-                    height: 20px;
                 }
-                QCalendarWidget QToolButton#qt_calendar_prevmonth:hover,
-                QCalendarWidget QToolButton#qt_calendar_nextmonth:hover {
-                    background-color: white;
-                    color: black;
+                QCalendarWidget QAbstractItemView:enabled {
+                    color: white;
+                    background-color: #1a1a1a;
+                    selection-background-color: #FFD700;
+                    selection-color: #1a1a1a;
                 }
                 QCalendarWidget QTableView {
-                    background-color: black;
+                    background-color: #1a1a1a;
                     color: white;
+                    selection-background-color: #FFD700;
+                    selection-color: #1a1a1a;
+                    outline: none;
                 }
-                QCalendarWidget QTableView::item:selected {
-                    background-color: gold;
-                    color: black;
-                    border-radius: 5px;
+                QCalendarWidget QTableView::item:hover {
+                    background-color: rgba(255, 215, 0, 0.2);
                 }
             """)
+
 
         # Create labels
         labels = [
@@ -878,44 +1002,48 @@ class TenantManagementPage(QMainWindow):
         self.load_filtered_tenants(selected_apartment_id, lease_status_filter)
 
     def load_filtered_tenants(self, selected_apartment_id, lease_status_filter):
-        """Fetch and display filtered tenants based on apartment and lease status."""
         try:
             conn = connect_db()
             cursor = conn.cursor()
+            
+            params = []
+            today = date.today()
 
-            # Base SQL Query
             query = """
                 SELECT tenants.id, tenants.full_name, tenants.id_number, tenants.phone, tenants.email, 
-                    units.unit_number, apartments.name, tenants.lease_start_date, tenants.lease_end_date
+                    units.unit_number, apartments.name, tenants.lease_start_date, tenants.lease_end_date, tenants.credit_balance, tenants.deposit
                 FROM tenants
                 JOIN units ON tenants.unit_id = units.id
                 JOIN apartments ON units.apartment_id = apartments.id
                 WHERE 1=1
             """
-            params = []
 
-            # **Filter by Apartment**
+            # Add apartment filter if selected
             if selected_apartment_id:
                 query += " AND apartments.id = %s"
                 params.append(selected_apartment_id)
 
-            # **Filter by Lease Status**
-            if "active" in lease_status_filter:
-                query += " AND (tenants.lease_end_date IS NULL OR tenants.lease_end_date > %s)"
-                params.append(date.today())
-            if "expired" in lease_status_filter:
-                query += " AND tenants.lease_end_date <= %s"
-                params.append(date.today())
+            # Add lease status filters
+            if lease_status_filter:
+                if "active" in lease_status_filter and "expired" in lease_status_filter:
+                    # Both active and expired leases selected - no additional filter needed
+                    pass
+                elif "active" in lease_status_filter:
+                    query += " AND (lease_end_date IS NULL OR lease_end_date > %s)"
+                    params.append(today)
+                elif "expired" in lease_status_filter:
+                    query += " AND lease_end_date <= %s"
+                    params.append(today)
 
             cursor.execute(query, params)
             filtered_tenants = cursor.fetchall()
             conn.close()
 
-            # **Update Table**
             self.tenants_table.setRowCount(0)  # Clear previous entries
+            self.tenants_table.verticalHeader().setDefaultSectionSize(35)  # Match row height
 
             for row_idx, tenant in enumerate(filtered_tenants):
-                tenant_id, name, id_number, phone, email, unit_number, apartment_name, lease_start_date, lease_end_date = tenant
+                tenant_id, name, id_number, phone, email, unit_number, apartment_name, lease_start_date, lease_end_date, credit_balance, deposit = tenant
                 
                 self.tenants_table.insertRow(row_idx)
                 self.tenants_table.setItem(row_idx, 0, QTableWidgetItem(name))
@@ -926,32 +1054,66 @@ class TenantManagementPage(QMainWindow):
                 self.tenants_table.setItem(row_idx, 5, QTableWidgetItem(apartment_name))
                 self.tenants_table.setItem(row_idx, 6, QTableWidgetItem(str(lease_start_date)))
                 self.tenants_table.setItem(row_idx, 7, QTableWidgetItem(str(lease_end_date) if lease_end_date else "Active"))
+                self.tenants_table.setItem(row_idx, 8, QTableWidgetItem(f"Ksh {credit_balance:,.2f}"))  # Add credit balance
+                self.tenants_table.setItem(row_idx, 9, QTableWidgetItem(f"Ksh {deposit:,.2f}"))  # Add credit balance
 
-                # Actions Column (Edit/Delete Buttons)
+                # Actions Column (Edit/Delete Buttons) with matching style
                 actions_widget = QWidget()
                 actions_layout = QHBoxLayout()
                 edit_button = QPushButton("Edit")
                 delete_button = QPushButton("Delete")
 
-                edit_button.setStyleSheet("background-color: green; color: black;")
-                delete_button.setStyleSheet("background-color: red; color: black;")
+                edit_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #1a1a1a;
+                        color: #FFD700;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        min-width: 55px;
+                        max-width: 55px;
+                        min-height: 20px;
+                        max-height: 20px;
+                        font-size: 10px;
+                        margin: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FFD700;
+                        color: #1a1a1a;
+                    }
+                """)
+                delete_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #8B0000;
+                        color: white;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        min-width: 55px;
+                        max-width: 55px;
+                        min-height: 20px;
+                        max-height: 20px;
+                        font-size: 10px;
+                        margin: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FF0000;
+                        color: white;
+                    }
+                """)
 
-                edit_button.setFixedWidth(80)
-                delete_button.setFixedWidth(80)
+                actions_layout.addWidget(edit_button)
+                actions_layout.addWidget(delete_button)
+                actions_layout.setContentsMargins(0, 0, 0, 0)  # Remove all margins
+                actions_layout.setSpacing(2)  # Minimal spacing
+                actions_widget.setLayout(actions_layout)
+
+                self.tenants_table.setCellWidget(row_idx, 10, actions_widget)
 
                 edit_button.clicked.connect(lambda _, tid=tenant_id: self.show_edit_tenant_dialog(tid))
                 delete_button.clicked.connect(lambda _, tid=tenant_id: self.delete_tenant(tid))
 
-                actions_layout.addWidget(edit_button)
-                actions_layout.addWidget(delete_button)
-                actions_layout.setContentsMargins(0, 0, 0, 0)  # Remove extra padding
-                actions_widget.setLayout(actions_layout)
-
-                self.tenants_table.setCellWidget(row_idx, 8, actions_widget)  # Actions column
-
         except psycopg2.Error as e:
             print(f"Database error: {e}")
-
+    
     def filter_tenants(self):
         """Filters the tenants table based on the search input."""
         search_text = self.search_bar.text().strip().lower()
@@ -967,13 +1129,38 @@ class TenantManagementPage(QMainWindow):
 
             self.tenants_table.setRowHidden(row, not row_matches)  # Hide rows that don't match
 
-
     def reset_filters(self):
         """Reset all filters and reload all tenants."""
         self.apartment_dropdown.setCurrentIndex(0)
         self.active_lease_checkbox.setChecked(False)
         self.expired_lease_checkbox.setChecked(False)
         self.load_tenants()
+
+    def open_tenant_details(self, row, column):
+        tenant_id_item = self.tenants_table.item(row, 0)
+        if tenant_id_item is None:
+            return
+        
+        # Retrieve tenant_id based on row from previously loaded data
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT tenants.id
+            FROM tenants
+            JOIN units ON tenants.unit_id = units.id
+            JOIN apartments ON units.apartment_id = apartments.id
+            LIMIT 1 OFFSET %s
+        """, (row,))
+        tenant_data = cursor.fetchone()
+        conn.close()
+
+        if tenant_data:
+            tenant_id = tenant_data[0]
+            from views.tenant_details import TenantDetailsPage
+            self.details_window = TenantDetailsPage(tenant_id)
+            self.details_window.show()
+            self.close()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

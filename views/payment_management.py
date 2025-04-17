@@ -68,14 +68,17 @@ class PaymentManagementPage(QMainWindow):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)

@@ -17,7 +17,7 @@ class LoginPage(QWidget):
         super().__init__()
 
         # Set window properties
-        self.setWindowTitle("Login - Rental Management System")
+        self.setWindowTitle("Login - Property Management System")
         self.setGeometry(100, 100, 500, 600)
         self.setStyleSheet("background-color: white;")
 
@@ -32,7 +32,7 @@ class LoginPage(QWidget):
         self.logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Title
-        self.title = QLabel("Rental Management System", self)
+        self.title = QLabel("Property Management System", self)
         self.title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title.setStyleSheet("color: black; margin-top: 10px;")
@@ -68,6 +68,7 @@ class LoginPage(QWidget):
         self.password_input.setPlaceholderText("Enter your password")
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.password_input.setStyleSheet("background-color: white; color: black; border-radius: 4px; padding: 6px;")
+        self.password_input.returnPressed.connect(self.handle_login)  # Add Enter key functionality
         password_layout.addWidget(self.password_label)
         password_layout.addWidget(self.password_input)
 

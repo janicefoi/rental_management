@@ -40,14 +40,17 @@ class RentPaymentsPage(QMainWindow):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)
@@ -98,11 +101,15 @@ class RentPaymentsPage(QMainWindow):
         self.search_bar.setFixedWidth(300)
         self.search_bar.setStyleSheet("""
             QLineEdit {
-                border: 2px solid black;
+                background-color: white;
+                border: 2px solid #1a1a1a;
                 border-radius: 10px;
-                padding: 8px;
-                font-size: 12pt;
-                color: black;
+                padding: 8px 15px;
+                font-size: 12px;
+                color: #1a1a1a;
+            }
+            QLineEdit:focus {
+                border: 2px solid #FFD700;
             }
         """)
         self.search_bar.textChanged.connect(self.filter_payments)  # 🔥 Connect search bar to filtering function
@@ -131,18 +138,28 @@ class RentPaymentsPage(QMainWindow):
         self.payments_table.setStyleSheet("""
             QTableWidget {
                 background-color: white;
-                color: black;
-                gridline-color: transparent;
-                border: 2px solid black;
+                border: 2px solid #1a1a1a;
                 border-radius: 10px;
+                padding: 10px;
             }
             QTableWidget::item {
-                border: none;
+                padding: 5px;
+                border-bottom: 1px solid #ddd;
+                color: black;
+            }
+            QTableWidget::item:selected {
+                background-color: #FFD700;
+                color: #1a1a1a;
             }
             QHeaderView::section {
-                background-color: white;
-                color: black;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                padding: 8px;
                 border: none;
+                font-weight: bold;
+            }
+            QTableWidget::item:hover {
+                background-color: #f5f5f5;
             }
         """)
         
@@ -316,6 +333,72 @@ class RentPaymentsPage(QMainWindow):
         for widget in [tenant_dropdown, amount_paid_input, payment_date_input, payment_method_input, status_input]:
             widget.setStyleSheet(field_style)
 
+        # Apply styling to calendar popup
+        payment_date_input.calendarWidget().setStyleSheet("""
+            QCalendarWidget {
+                background-color: #1a1a1a;
+                color: white;
+                border: 2px solid #FFD700;
+                border-radius: 10px;
+            }
+            QCalendarWidget QWidget#qt_calendar_navigationbar {
+                background-color: #1a1a1a;
+                border-bottom: 2px solid #FFD700;
+            }
+            QCalendarWidget QComboBox {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border: 1px solid #FFD700;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QCalendarWidget QComboBox QAbstractItemView {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                selection-background-color: #FFD700;
+                selection-color: #1a1a1a;
+            }
+            QCalendarWidget QToolButton {
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border-radius: 5px;
+                padding: 5px;
+                min-width: 30px;
+                min-height: 30px;
+            }
+            QCalendarWidget QToolButton:hover {
+                background-color: white;
+                color: #1a1a1a;
+            }
+            QCalendarWidget QMenu {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border: 1px solid #FFD700;
+            }
+            QCalendarWidget QSpinBox {
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border: 1px solid #FFD700;
+                border-radius: 5px;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                color: white;
+                background-color: #1a1a1a;
+                selection-background-color: #FFD700;
+                selection-color: #1a1a1a;
+            }
+            QCalendarWidget QTableView {
+                background-color: #1a1a1a;
+                color: white;
+                selection-background-color: #FFD700;
+                selection-color: #1a1a1a;
+                outline: none;
+            }
+            QCalendarWidget QTableView::item:hover {
+                background-color: rgba(255, 215, 0, 0.2);
+            }
+        """)
+
         # Form Layout (Without Receipt Number & Late Fee)
         fields = [
             ("Tenant:", tenant_dropdown),
@@ -380,114 +463,92 @@ class RentPaymentsPage(QMainWindow):
 
     def add_payment(self, tenant_dropdown, amount_paid_input, payment_date_input, 
                     payment_method_input, status_input, dialog):
-        """Insert a new payment record into the database and update invoice status accordingly."""
         try:
             conn = connect_db()
             cur = conn.cursor()
 
             # Get values from the form
-            tenant_id = tenant_dropdown.currentData()  # Get tenant ID from dropdown
-            amount_paid = Decimal(amount_paid_input.text())  # Convert to Decimal for accuracy
+            tenant_id = tenant_dropdown.currentData()
+            amount_paid = Decimal(amount_paid_input.text())
             payment_date = payment_date_input.date().toString("yyyy-MM-dd")
-            payment_method = payment_method_input.currentText().lower()  # Convert to lowercase
-            status = status_input.currentText().lower()  # Convert to lowercase if needed
+            payment_method = payment_method_input.currentText().lower()
+            status = status_input.currentText().lower()
 
-            # Ensure required fields are not empty
-            if not tenant_id or not amount_paid or not payment_date or not payment_method:
+            if not all([tenant_id, amount_paid, payment_date, payment_method]):
                 QMessageBox.warning(self, "Error", "Please fill in all required fields.")
                 return
 
-            # Fetch tenant's existing credit balance
-            cur.execute("SELECT credit_balance FROM tenants WHERE id = %s", (tenant_id,))
-            credit_balance = cur.fetchone()[0] or Decimal(0)
-
-            # Generate the next receipt number
+            # Generate receipt number
             cur.execute("SELECT receipt_number FROM payments ORDER BY id DESC LIMIT 1")
             last_receipt = cur.fetchone()
             new_receipt = f"N{(int(last_receipt[0][1:]) + 1) if last_receipt else 1:03}"
 
-            # Insert payment record
-            query = """
-            INSERT INTO payments (tenant_id, amount_paid, payment_date, 
-                                payment_method, receipt_number, status)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-            """
-            cur.execute(query, (tenant_id, amount_paid, payment_date, 
-                                payment_method, new_receipt, status))
-
+            # Record the payment
+            cur.execute("""
+                INSERT INTO payments (tenant_id, amount_paid, payment_date, 
+                                    payment_method, receipt_number, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (tenant_id, amount_paid, payment_date, payment_method, new_receipt, status))
             payment_id = cur.fetchone()[0]
-            print(f"✅ Payment {payment_id} recorded: Tenant {tenant_id} paid {amount_paid}")
 
-            # Fetch the earliest unpaid invoice
+            remaining_payment = amount_paid
+            
+            # Fetch all unpaid invoices ordered by date
             cur.execute("""
                 SELECT id, amount_due, late_fee, remaining_balance, status 
                 FROM invoices 
                 WHERE tenant_id = %s AND status IN ('unpaid', 'partially_paid', 'overdue')
-                ORDER BY invoice_date ASC LIMIT 1
+                ORDER BY invoice_date ASC
             """, (tenant_id,))
-            invoice = cur.fetchone()
+            unpaid_invoices = cur.fetchall()
 
-            if invoice:
-                invoice_id, amount_due, late_fee, remaining_balance, status = invoice
+            for invoice in unpaid_invoices:
+                if remaining_payment <= 0:
+                    break
 
-                # Ensure remaining balance is correct
-                if remaining_balance is None or remaining_balance == 0:
-                    remaining_balance = amount_due + late_fee  # Ensure correct tracking
+                invoice_id, amount_due, late_fee, remaining_balance, inv_status = invoice
+                total_due = amount_due + (late_fee or 0)
+                current_balance = remaining_balance if remaining_balance is not None else total_due
 
-                print(f"📜 Invoice {invoice_id} found: Amount Due = {amount_due}, Late Fee = {late_fee}, Corrected Remaining Balance = {remaining_balance}")
-
-                # Apply payment to the invoice
-                new_balance = remaining_balance - amount_paid
-                print(f"💰 Payment applied: {amount_paid}, New Balance: {new_balance}")
-
-                if new_balance <= 0:  # Full payment or overpayment
+                if remaining_payment >= current_balance:
+                    # Full payment for this invoice
                     cur.execute("""
                         UPDATE invoices 
                         SET status = 'paid', remaining_balance = 0 
                         WHERE id = %s
                     """, (invoice_id,))
-                    print(f"✅ Invoice {invoice_id} marked as PAID")
-
-                    # If overpayment, store it as tenant credit
-                    overpaid_amount = abs(new_balance)
-                    if overpaid_amount > 0:
-                        credit_balance += overpaid_amount
-                        cur.execute("""
-                            UPDATE tenants SET credit_balance = %s WHERE id = %s
-                        """, (credit_balance, tenant_id))
-                        print(f"💰 Overpayment of {overpaid_amount} stored as tenant credit (Total Credit: {credit_balance})")
-
-                else:  # Partial payment case
+                    remaining_payment -= current_balance
+                else:
+                    # Partial payment
+                    new_balance = current_balance - remaining_payment
                     cur.execute("""
                         UPDATE invoices 
                         SET status = 'partially_paid', remaining_balance = %s 
                         WHERE id = %s
                     """, (new_balance, invoice_id))
-                    print(f"⚠️ Invoice {invoice_id} is now PARTIALLY PAID. Remaining balance: {new_balance}")
+                    remaining_payment = 0
 
-            else:
-                # If no unpaid invoice exists, store the entire amount as credit
-                credit_balance += amount_paid
+            # Store any remaining amount as credit
+            if remaining_payment > 0:
                 cur.execute("""
-                    UPDATE tenants SET credit_balance = %s WHERE id = %s
-                """, (credit_balance, tenant_id))
-                print(f"💰 No invoice found. Entire payment stored as tenant credit (Total Credit: {credit_balance})")
+                    UPDATE tenants 
+                    SET credit_balance = COALESCE(credit_balance, 0) + %s 
+                    WHERE id = %s
+                """, (remaining_payment, tenant_id))
 
             conn.commit()
-            cur.close()
-            conn.close()
-
-            self.load_payments()  # Refresh payments table
-            dialog.accept()  # Close the dialog
+            self.load_payments()
+            dialog.accept()
             QMessageBox.information(self, "Success", "Payment recorded successfully.")
-
-            # Generate the receipt
             self.generate_receipt_pdf(payment_id)
 
-        except psycopg2.Error as e:
+        except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Failed to save payment: {e}")
             print(f"❌ Database Error: {e}")
+        finally:
+            if conn:
+                conn.close()
 
 
    

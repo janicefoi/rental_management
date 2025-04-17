@@ -3,7 +3,7 @@ import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
     QGridLayout, QFrame, QLineEdit, QApplication, QGraphicsOpacityEffect, QHBoxLayout, QDialog, QFormLayout, QSpinBox, QMessageBox,
-    QComboBox
+    QComboBox, QScrollArea, QSizePolicy
 
 )
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation
@@ -17,7 +17,7 @@ from views.unit_management import UnitManagementPage
 
 class PropertyCard(QFrame):
     clicked = pyqtSignal(int)
-    edit_clicked = pyqtSignal(int)  # Signal for edit button
+    edit_clicked = pyqtSignal(int)
 
     def __init__(self, property_id, name, address, total_units, payment_modes, parent=None):
         super().__init__(parent)
@@ -25,50 +25,56 @@ class PropertyCard(QFrame):
         self.setFixedSize(300, 200)
         self.setStyleSheet("""
             QFrame {
-                background-color: black;
+                background-color: #1a1a1a;
                 padding: 10px;
                 border-radius: 10px;
-                position: relative;
+                border: 2px solid #1a1a1a;
             }
             QFrame:hover {
-                background-color: gold;
+                border: 2px solid #FFD700;
             }
         """)
 
+        # Create layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)  # Add consistent spacing between elements
+
+        # Property Name Label
+        name_label = QLabel(name)
+        name_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_label.setStyleSheet("color: #FFD700; padding-bottom: 5px;")
+
+        # Other details
         payment_modes_str = ", ".join(payment_modes) if payment_modes else "None"
-        text_label = QLabel(f"{name}\nAddress: {address}\nTotal Units: {total_units}\nPayment Modes: {payment_modes_str}")
-        text_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text_label.setStyleSheet("""
-            color: gold;
-            QFrame:hover & {
-                color: black;
-            }
-        """)
+        details_label = QLabel(f"Address: {address}\nTotal Units: {total_units}\nPayment Modes: {payment_modes_str}")
+        details_label.setFont(QFont("Arial", 11))
+        details_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        details_label.setStyleSheet("color: white;")
 
-        edit_button = QPushButton("✎")  # Small edit icon
+        # Edit button
+        edit_button = QPushButton("✎")
         edit_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         edit_button.setFixedSize(30, 30)
         edit_button.setStyleSheet("""
             QPushButton {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
                 border-radius: 15px;
-                position: absolute;
-                top: 10px;
-                right: 10px;
+                border: none;
             }
             QPushButton:hover {
-                background-color: black;
-                color: gold;
+                background-color: white;
             }
         """)
         edit_button.clicked.connect(lambda: self.edit_clicked.emit(self.property_id))
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(edit_button, alignment=Qt.AlignmentFlag.AlignRight)
-        layout.addWidget(text_label)
-        layout.setContentsMargins(10, 10, 10, 10)
+        # Add widgets to layout
+        layout.addWidget(name_label)
+        layout.addWidget(details_label)
+        layout.addStretch()  # Add stretch to push edit button to bottom
+        layout.addWidget(edit_button, alignment=Qt.AlignmentFlag.AlignLeft)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -121,9 +127,61 @@ class PropertiesPage(QMainWindow):
         return properties
 
     def initUI(self):
-        self.main_layout = QVBoxLayout()
+        # Create a main widget and layout
+        main_widget = QWidget()
+        main_widget.setStyleSheet("""
+            QWidget {
+                background-color: white;
+            }
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollArea > QWidget > QWidget {
+                background-color: transparent;
+            }
+            QScrollBar {
+                width: 0px;
+                height: 0px;
+            }
+        """)
 
-        # **Back Button Section**
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollArea > QWidget > QWidget {
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                width: 0px;
+                background: transparent;
+            }
+            QScrollBar::handle:vertical {
+                background: transparent;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+
+        # Create a container widget for the scroll area
+        scroll_widget = QWidget()
+        self.main_layout = QVBoxLayout(scroll_widget)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(20)
+
+        # Add your existing UI elements to main_layout
+        # Back button section
         back_button_layout = QHBoxLayout()
         back_button_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -132,14 +190,17 @@ class PropertiesPage(QMainWindow):
         back_button.setFixedSize(120, 40)
         back_button.setStyleSheet("""
             QPushButton {
-                background-color: black;
-                color: gold;
-                border-radius: 10px;
-                padding: 8px;
+                background-color: #1a1a1a;
+                color: #FFD700;
+                border-radius: 20px;
+                padding: 10px 20px;
+                font-weight: bold;
+                border: 2px solid #1a1a1a;
             }
             QPushButton:hover {
-                background-color: gold;
-                color: black;
+                background-color: #FFD700;
+                color: #1a1a1a;
+                border: 2px solid #FFD700;
             }
         """)
         back_button.clicked.connect(self.go_back)
@@ -149,16 +210,24 @@ class PropertiesPage(QMainWindow):
 
         # Slideshow Container
         self.slideshow_label = QLabel()
-        self.slideshow_label.setFixedSize(1200, 400)
+        self.slideshow_label.setFixedSize(1100, 400)  # Match admin dashboard dimensions
         self.slideshow_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.slideshow_label.setStyleSheet("border-radius: 10px; background-color: black;")
-        self.main_layout.addWidget(self.slideshow_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.slideshow_label.setStyleSheet("""
+            QLabel {
+                background-color: #1a1a1a;
+                border-radius: 15px;
+                padding: 10px;
+                margin: 20px;
+            }
+        """)
 
-        # Animation Effect
-        self.opacity_effect = QGraphicsOpacityEffect()
-        self.slideshow_label.setGraphicsEffect(self.opacity_effect)
-        self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.fade_animation.setDuration(1000)
+        # Create a container for slideshow and center it
+        slideshow_container = QWidget()
+        slideshow_layout = QVBoxLayout(slideshow_container)
+        slideshow_layout.setContentsMargins(20, 20, 20, 20)
+        slideshow_layout.addWidget(self.slideshow_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        self.main_layout.addWidget(slideshow_container, alignment=Qt.AlignmentFlag.AlignCenter)
 
         # Auto switch images every 5 seconds
         self.timer = QTimer(self)
@@ -187,31 +256,44 @@ class PropertiesPage(QMainWindow):
 
         # Property Cards Section
         self.properties_grid = QGridLayout()
-        self.properties_grid.setSpacing(10)
+        self.properties_grid.setSpacing(20)  # Set uniform spacing
+        self.properties_grid.setContentsMargins(0, 0, 0, 0)
         self.load_properties()
 
         properties_container = QWidget()
         properties_container.setLayout(self.properties_grid)
         self.main_layout.addWidget(properties_container)
 
-        main_widget = QWidget()
-        main_widget.setStyleSheet("background-color: white;")
-        main_widget.setLayout(self.main_layout)
-        self.setCentralWidget(main_widget)
-        self.update_slideshow()
-
+        # Set the scroll widget as the main widget
+        scroll_area.setWidget(scroll_widget)
+        self.setCentralWidget(scroll_area)  # Use scroll_area as the central widget
+        self.setStyleSheet("background-color: white;")
 
     def load_properties(self):
+        # Clear existing items from the grid
+        while self.properties_grid.count():
+            item = self.properties_grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
         row, col = 0, 0
         for prop in self.properties:
-            card = PropertyCard(prop["id"], prop["name"], prop["address"], prop["total_units"], prop["payment_modes"], parent=self)
+            card = PropertyCard(prop["id"], prop["name"], prop["address"], 
+                              prop["total_units"], prop["payment_modes"], parent=self)
             card.clicked.connect(self.open_unit_management)
-            card.edit_clicked.connect(self.show_edit_property_dialog)  # Connect edit button to function
+            card.edit_clicked.connect(self.show_edit_property_dialog)
+            
             self.properties_grid.addWidget(card, row, col)
+            
             col += 1
-            if col > 2:
+            if col > 2:  # After 3 cards, move to next row
                 col = 0
                 row += 1
+
+        # Add stretch at the bottom to push cards to the top
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.properties_grid.addWidget(spacer, (row + 1) * 2, 0, 1, 3)
 
 
     def show_add_property_dialog(self):
@@ -339,11 +421,26 @@ class PropertiesPage(QMainWindow):
             cursor.execute("INSERT INTO apartments (name, address) VALUES (%s, %s) RETURNING id;", (name, address))
             apartment_id = cursor.fetchone()[0]
             
-            # Insert into apartment_payment_methods, including bank_name
-            cursor.execute("""
-                INSERT INTO apartment_payment_methods (apartment_id, payment_mode, mpesa_paybill, mpesa_account_no, bank_name, bank_account_no) 
-                VALUES (%s, %s, %s, %s, %s, %s);
-            """, (apartment_id, payment_mode, mpesa_paybill, mpesa_account_no, bank_name, bank_account_no))
+            # Determine which payment methods to insert
+            payment_methods = []
+            
+            # Add Mpesa if Mpesa details are provided
+            if mpesa_paybill or mpesa_account_no:
+                cursor.execute("""
+                    INSERT INTO apartment_payment_methods 
+                    (apartment_id, payment_mode, mpesa_paybill, mpesa_account_no) 
+                    VALUES (%s, 'Mpesa', %s, %s);
+                """, (apartment_id, mpesa_paybill or None, mpesa_account_no or None))
+                payment_methods.append('Mpesa')
+            
+            # Add Bank if bank details are provided
+            if bank_name or bank_account_no:
+                cursor.execute("""
+                    INSERT INTO apartment_payment_methods 
+                    (apartment_id, payment_mode, bank_name, bank_account_no) 
+                    VALUES (%s, 'Bank', %s, %s);
+                """, (apartment_id, bank_name or None, bank_account_no or None))
+                payment_methods.append('Bank')
             
             conn.commit()
             cursor.close()
@@ -354,7 +451,10 @@ class PropertiesPage(QMainWindow):
             self.load_properties()
             
             dialog.accept()
+            QMessageBox.information(self, "Success", "Property added successfully!")
+            
         except psycopg2.Error as e:
+            QMessageBox.critical(self, "Error", f"Failed to add property: {str(e)}")
             print(f"Database error: {e}")
 
 
@@ -460,7 +560,7 @@ class PropertiesPage(QMainWindow):
         save_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         save_button.setStyleSheet("background-color: gold; color: black; padding: 10px; border-radius: 10px;")
         save_button.clicked.connect(lambda: self.update_property(
-            property_id, mpesa_paybill_input.text(), mpesa_account_input.text(), 
+            property_id, mpesa_paybill_input.text(), mpesa_account_no.text(), 
             bank_account_input.text(), bank_name_dropdown.currentText(), dialog
         ))
 
@@ -542,20 +642,26 @@ class PropertiesPage(QMainWindow):
         self.close()
 
     def update_slideshow(self):
+        """Update the slideshow with the current image."""
         if not self.images:
             self.slideshow_label.setText("No images available")
             return
-        image_path = self.images[self.current_image_index]
-        pixmap = QPixmap(image_path)
+            
+        pixmap = QPixmap(self.images[self.current_image_index])
         if not pixmap.isNull():
-            self.slideshow_label.setPixmap(pixmap.scaled(self.slideshow_label.width(), self.slideshow_label.height(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            self.slideshow_label.setPixmap(
+                pixmap.scaled(
+                    self.slideshow_label.width(),
+                    self.slideshow_label.height(),
+                    Qt.AspectRatioMode.IgnoreAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+            )
         else:
             self.slideshow_label.setText("Image not found")
-        self.fade_animation.setStartValue(0.0)
-        self.fade_animation.setEndValue(1.0)
-        self.fade_animation.start()
 
     def next_image(self):
+        """Switch to the next image in the slideshow."""
         self.current_image_index = (self.current_image_index + 1) % len(self.images)
         self.update_slideshow()
 
